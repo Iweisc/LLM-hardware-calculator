@@ -3,7 +3,7 @@
 ## Phase 1: Core Functionality & MVP
 
 ### Setup & Foundation
-- [ ] Initialize project repository (e.g., Git, GitHub/GitLab).
+- [x] Initialize project repository (e.g., Git, GitHub/GitLab).
 - [ ] Choose and set up frontend framework (React/Vite or Next.js).
 - [ ] Choose and integrate styling approach (Tailwind CSS or UI Component Library like MUI/Chakra/Mantine).
 - [ ] Set up basic project structure (components, styles, utilities folders).
@@ -61,7 +61,7 @@
 - [ ] Deploy the initial version.
 
 ### Documentation
-- [ ] Write a comprehensive README.md (Setup, How to Run, Overview, Tech Stack).
+- [x] Write a comprehensive README.md (Setup, How to Run, Overview, Tech Stack).
 - [ ] Add code comments where necessary, especially for complex logic (calculations).
 
 ## Phase 2: Enhancements & Refinements (Post-MVP)
