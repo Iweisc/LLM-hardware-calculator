@@ -1,0 +1,84 @@
+/* This file is kept as a placeholder for component-specific styles */
+/* Most styles have been moved to index.css using Tailwind's layers */
+
+/* Additional component-specific animations and effects */
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(99, 102, 241, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+  }
+}
+
+.model-badge {
+  @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium;
+  background-color: rgba(99, 102, 241, 0.1);
+  color: rgb(67, 56, 202);
+}
+
+/* Graph and chart styles for results visualization */
+.memory-display {
+  @apply w-full;
+}
+
+.bar-container {
+  @apply w-full;
+}
+
+.bar-chart {
+  @apply relative h-5 bg-gray-100 rounded-full overflow-hidden;
+}
+
+.bar-fill {
+  @apply absolute top-0 left-0 h-full rounded-full transition-all duration-500;
+}
+
+.memory-details {
+  @apply w-full transition-all duration-300;
+}
+
+.bar-fill-vram {
+  @apply bg-gradient-to-r from-primary-500 to-accent-500;
+}
+
+.bar-fill-ram {
+  @apply bg-gradient-to-r from-secondary-500 to-teal-500;
+}
+
+/* Tooltip styles */
+.tooltip {
+  @apply relative inline-block;
+}
+
+.tooltip .tooltip-text {
+  @apply invisible absolute z-10 px-3 py-2 text-xs text-white bg-gray-800 rounded-md opacity-0 transition-opacity duration-300 whitespace-nowrap;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.tooltip .tooltip-text::after {
+  content: "";
+  @apply absolute top-full left-1/2 border-4 border-transparent;
+  margin-left: -4px;
+  border-top-color: #1f2937;
+}
+
+.tooltip:hover .tooltip-text {
+  @apply visible opacity-100;
+}
+
+/* Icon animations */
+.icon-spin {
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
