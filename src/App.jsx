@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import './App.css';
 import { calculateHardware } from './utils/calculator';
-import { processGpuData, defaultGpuList, getConsumerGpus, getWorkstationGpus } from './utils/gpuData';
+import { processGpuData, defaultGpuList, getConsumerGpus, getWorkstationGpus, filterGpusBySearch, getCachedGpuList } from './utils/gpuData';
 
 // Component to display a tooltip on hover
 const Tooltip = ({ text, children }) => (
@@ -114,18 +114,24 @@ function App() {
   const [results, setResults] = useState(null);
   const [gpuList, setGpuList] = useState(defaultGpuList);
   const [gpuListLoading, setGpuListLoading] = useState(true);
+  const [gpuSearchQuery, setGpuSearchQuery] = useState('');
   
-  // Fetch GPU data when component mounts
+  // Fetch and cache GPU data when component mounts
   useEffect(() => {
     const fetchGpuData = async () => {
       try {
         setGpuListLoading(true);
-        const fetchedGpuList = await processGpuData();
+        const fetchedGpuList = await getCachedGpuList();
         if (fetchedGpuList && fetchedGpuList.length > 0) {
           setGpuList(fetchedGpuList);
+          console.log(`Loaded ${fetchedGpuList.length} GPUs`);
+        } else {
+          console.warn("Failed to load GPU database, using fallback list");
+          setGpuList(defaultGpuList);
         }
       } catch (error) {
         console.error("Failed to fetch GPU data:", error);
+        setGpuList(defaultGpuList);
       } finally {
         setGpuListLoading(false);
       }
@@ -483,9 +489,37 @@ function App() {
                             {gpuListLoading && <span className="text-xs text-gray-500">Loading...</span>}
                           </h4>
                           
-                          <div className="space-y-2">
-                            {getConsumerGpus(gpuList, 10).length > 0 ? 
-                              getConsumerGpus(gpuList, 10).map((gpu, index) => {
+                          {/* GPU Search Bar */}
+                          <div className="mb-3">
+                            <div className="relative">
+                              <input 
+                                type="text"
+                                className="w-full p-2 pl-8 pr-3 text-xs rounded-md border border-gray-300 focus:ring-primary-500 focus:border-primary-500"
+                                placeholder="Search for your GPU model..."
+                                value={gpuSearchQuery}
+                                onChange={(e) => setGpuSearchQuery(e.target.value)}
+                              />
+                              <div className="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none text-gray-400">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                                </svg>
+                              </div>
+                              {gpuSearchQuery && (
+                                <button
+                                  className="absolute inset-y-0 right-0 flex items-center pr-2 text-gray-400 hover:text-gray-600"
+                                  onClick={() => setGpuSearchQuery('')}
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2 max-h-64 overflow-y-auto">
+                            {getConsumerGpus(filterGpusBySearch(gpuList, gpuSearchQuery)).length > 0 ? 
+                              getConsumerGpus(filterGpusBySearch(gpuList, gpuSearchQuery)).map((gpu, index) => {
                                 const isMinCompatible = gpu.vram >= results.vramMinGB;
                                 const isRecCompatible = gpu.vram >= results.vramRecGB;
                                 let status = "incompatible";
@@ -547,9 +581,9 @@ function App() {
                         {/* Professional GPUs compatibility */}
                         <div className="p-4 bg-gray-50 rounded-lg">
                           <h4 className="text-sm font-medium text-gray-800 mb-2">Professional GPU Compatibility</h4>
-                          <div className="space-y-2">
-                            {getWorkstationGpus(gpuList, 6).length > 0 ?
-                              getWorkstationGpus(gpuList, 6).map((gpu, index) => {
+                          <div className="space-y-2 max-h-64 overflow-y-auto">
+                            {getWorkstationGpus(filterGpusBySearch(gpuList, gpuSearchQuery)).length > 0 ?
+                              getWorkstationGpus(filterGpusBySearch(gpuList, gpuSearchQuery)).map((gpu, index) => {
                                 const isMinCompatible = gpu.vram >= results.vramMinGB;
                                 const isRecCompatible = gpu.vram >= results.vramRecGB;
                                 let status = "incompatible";
