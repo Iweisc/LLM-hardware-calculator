@@ -140,9 +140,11 @@ export const calculateActivationGB = (modelSizeGB) => {
  * @param {string} quantization - Quantization type
  * @param {number} contextLength - Maximum sequence length
  * @param {number} batchSize - Batch size
+ * @param {boolean} isUnifiedMemory - Whether system uses unified memory (GPU and RAM share memory)
+ * @param {number} numGpus - Number of GPUs in the system or server rack
  * @returns {Object} Object containing VRAM and RAM estimates
  */
-export const calculateHardware = (modelParams, quantization, contextLength, batchSize) => {
+export const calculateHardware = (modelParams, quantization, contextLength, batchSize, isUnifiedMemory = false, numGpus = 1) => {
   const bytesPerParam = getBytesPerParameter(quantization);
   const modelSizeGB = calculateModelSizeGB(modelParams, bytesPerParam);
   
@@ -159,12 +161,72 @@ export const calculateHardware = (modelParams, quantization, contextLength, batc
   // Fixed overhead for CUDA context, framework, etc.
   const fixedOverheadGB = 1.5;
   
-  // Calculate VRAM requirements
-  const vramMinGB = modelSizeGB + fixedOverheadGB;
-  const vramRecGB = modelSizeGB + kvCacheGB + activationGB + fixedOverheadGB;
-  
-  // Calculate RAM requirements
+  // Fixed overhead for OS
   const osOverheadGB = 4; // Arbitrary OS overhead
+  
+  // Handle the case of unified memory (like Apple Silicon)
+  if (isUnifiedMemory) {
+    // In unified memory, VRAM and RAM share the same pool
+    // For calculation purposes, we treat it as one memory pool with a cap of 512GB
+    const unifiedMemoryMax = 512; // Maximum unified memory in GB
+    
+    // Calculate original values (before capping)
+    const originalUnifiedMinGB = modelSizeGB + fixedOverheadGB + osOverheadGB;
+    const originalUnifiedRecGB = modelSizeGB + kvCacheGB + activationGB + fixedOverheadGB + osOverheadGB;
+    
+    // Then apply caps
+    const unifiedMinGB = Math.min(originalUnifiedMinGB, unifiedMemoryMax);
+    const unifiedRecGB = Math.min(originalUnifiedRecGB, unifiedMemoryMax);
+    
+    // Check if values were capped
+    const minExceedsLimit = originalUnifiedMinGB > unifiedMemoryMax;
+    const recExceedsLimit = originalUnifiedRecGB > unifiedMemoryMax;
+    
+    // Set both VRAM and RAM to the same values for unified memory
+    const vramMinGB = unifiedMinGB;
+    const vramRecGB = unifiedRecGB;
+    const ramMinGB = unifiedMinGB;
+    const ramRecGB = unifiedRecGB;
+    
+    return {
+      modelSizeGB: parseFloat(modelSizeGB.toFixed(2)),
+      kvCacheGB: parseFloat(kvCacheGB.toFixed(2)),
+      activationGB: parseFloat(activationGB.toFixed(2)),
+      overheadGB: fixedOverheadGB,
+      vramMinGB: parseFloat(vramMinGB.toFixed(2)),
+      vramRecGB: parseFloat(vramRecGB.toFixed(2)),
+      ramMinGB: parseFloat(ramMinGB.toFixed(2)),
+      ramRecGB: parseFloat(ramRecGB.toFixed(2)),
+      isUnifiedMemory: true,
+      unifiedMemoryMax,
+      // Track if limits were exceeded
+      minExceedsLimit,
+      recExceedsLimit,
+      // Original values before capping
+      originalUnifiedMinGB: parseFloat(originalUnifiedMinGB.toFixed(2)),
+      originalUnifiedRecGB: parseFloat(originalUnifiedRecGB.toFixed(2)),
+      // Include assumptions for transparency
+      assumptions: {
+        estLayers,
+        estHiddenDim,
+        bytesPerParam,
+        osOverheadGB,
+        activationFactor: 0.2,
+        numGpus: 1 // Unified memory typically means 1 GPU/SoC
+      }
+    };
+  }
+  
+  // For multi-GPU setups with non-unified memory
+  // Calculate per-GPU VRAM requirements
+  const vramMinPerGpu = (modelSizeGB + fixedOverheadGB) / numGpus;
+  const vramRecPerGpu = (modelSizeGB + kvCacheGB + activationGB + fixedOverheadGB) / numGpus;
+  
+  // Total VRAM across all GPUs
+  const vramMinGB = vramMinPerGpu * numGpus;
+  const vramRecGB = vramRecPerGpu * numGpus;
+  
+  // Calculate RAM requirements - this doesn't change much with multi-GPU, except maybe for a small overhead
   const ramMinGB = modelSizeGB + osOverheadGB;
   const ramRecGB = ramMinGB * 1.2; // Add 20% buffer
   
@@ -176,8 +238,11 @@ export const calculateHardware = (modelParams, quantization, contextLength, batc
     overheadGB: fixedOverheadGB,
     vramMinGB: parseFloat(vramMinGB.toFixed(2)),
     vramRecGB: parseFloat(vramRecGB.toFixed(2)),
+    vramMinPerGpu: parseFloat(vramMinPerGpu.toFixed(2)),
+    vramRecPerGpu: parseFloat(vramRecPerGpu.toFixed(2)),
     ramMinGB: parseFloat(ramMinGB.toFixed(2)),
     ramRecGB: parseFloat(ramRecGB.toFixed(2)),
+    isUnifiedMemory: false,
     // Include assumptions for transparency
     assumptions: {
       estLayers,
@@ -185,6 +250,7 @@ export const calculateHardware = (modelParams, quantization, contextLength, batc
       bytesPerParam,
       osOverheadGB,
       activationFactor: 0.2,
+      numGpus
     }
   };
 };

@@ -154,31 +154,119 @@ export const processGpuData = async () => {
 
 // Default list of common GPUs (fallback if API fails)
 export const defaultGpuList = [
-  { name: "RTX 4090", vram: 24 },
-  { name: "RTX 4080", vram: 16 },
-  { name: "RTX 4070 Ti", vram: 12 },
-  { name: "RTX 3090", vram: 24 },
-  { name: "RTX 3080", vram: 10 },
-  { name: "RTX 3070", vram: 8 },
-  { name: "RTX 2080 Ti", vram: 11 },
-  { name: "RTX 2080", vram: 8 },
-  { name: "RTX 2070", vram: 8 },
-  { name: "A100", vram: 80 },
-  { name: "A6000", vram: 48 },
-  { name: "A5000", vram: 24 },
-  { name: "A4000", vram: 16 },
-  { name: "Radeon RX 7900 XTX", vram: 24 },
-  { name: "Radeon RX 6900 XT", vram: 16 },
-  { name: "Radeon RX 6800 XT", vram: 16 },
-  { name: "Apple M2 Ultra", vram: 76 },
-  { name: "Apple M2 Pro", vram: 32 },
-  { name: "Apple M1 Ultra", vram: 64 },
-  { name: "Apple M1 Max", vram: 32 }
+  // NVIDIA Consumer GPUs
+  { name: "RTX 4090", vram: 24, isUnified: false },
+  { name: "RTX 4080", vram: 16, isUnified: false },
+  { name: "RTX 4070 Ti", vram: 12, isUnified: false },
+  { name: "RTX 3090", vram: 24, isUnified: false },
+  { name: "RTX 3080", vram: 10, isUnified: false },
+  { name: "RTX 3070", vram: 8, isUnified: false },
+  { name: "RTX 2080 Ti", vram: 11, isUnified: false },
+  { name: "RTX 2080", vram: 8, isUnified: false },
+  { name: "RTX 2070", vram: 8, isUnified: false },
+  
+  // NVIDIA Professional GPUs
+  { name: "A100", vram: 80, isUnified: false },
+  { name: "A6000", vram: 48, isUnified: false },
+  { name: "A5000", vram: 24, isUnified: false },
+  { name: "A4000", vram: 16, isUnified: false },
+  
+  // AMD GPUs
+  { name: "Radeon RX 7900 XTX", vram: 24, isUnified: false },
+  { name: "Radeon RX 6900 XT", vram: 16, isUnified: false },
+  { name: "Radeon RX 6800 XT", vram: 16, isUnified: false },
+  
+  // Apple Silicon (Unified Memory)
+  { name: "Apple M1", vendor: "Apple", vram: 8, isUnified: true },
+  { name: "Apple M1", vendor: "Apple", vram: 16, isUnified: true },
+  { name: "Apple M1 Pro", vendor: "Apple", vram: 16, isUnified: true },
+  { name: "Apple M1 Pro", vendor: "Apple", vram: 32, isUnified: true },
+  { name: "Apple M1 Max", vendor: "Apple", vram: 32, isUnified: true },
+  { name: "Apple M1 Max", vendor: "Apple", vram: 64, isUnified: true },
+  { name: "Apple M1 Ultra", vendor: "Apple", vram: 64, isUnified: true },
+  { name: "Apple M1 Ultra", vendor: "Apple", vram: 128, isUnified: true },
+  
+  { name: "Apple M2", vendor: "Apple", vram: 8, isUnified: true },
+  { name: "Apple M2", vendor: "Apple", vram: 16, isUnified: true },
+  { name: "Apple M2", vendor: "Apple", vram: 24, isUnified: true },
+  { name: "Apple M2 Pro", vendor: "Apple", vram: 16, isUnified: true },
+  { name: "Apple M2 Pro", vendor: "Apple", vram: 32, isUnified: true },
+  { name: "Apple M2 Max", vendor: "Apple", vram: 32, isUnified: true },
+  { name: "Apple M2 Max", vendor: "Apple", vram: 64, isUnified: true },
+  { name: "Apple M2 Max", vendor: "Apple", vram: 96, isUnified: true },
+  { name: "Apple M2 Ultra", vendor: "Apple", vram: 64, isUnified: true },
+  { name: "Apple M2 Ultra", vendor: "Apple", vram: 128, isUnified: true },
+  { name: "Apple M2 Ultra", vendor: "Apple", vram: 192, isUnified: true },
+  
+  { name: "Apple M3", vendor: "Apple", vram: 8, isUnified: true },
+  { name: "Apple M3", vendor: "Apple", vram: 16, isUnified: true },
+  { name: "Apple M3", vendor: "Apple", vram: 24, isUnified: true },
+  { name: "Apple M3 Pro", vendor: "Apple", vram: 18, isUnified: true },
+  { name: "Apple M3 Pro", vendor: "Apple", vram: 36, isUnified: true },
+  { name: "Apple M3 Max", vendor: "Apple", vram: 36, isUnified: true },
+  { name: "Apple M3 Max", vendor: "Apple", vram: 64, isUnified: true },
+  { name: "Apple M3 Max", vendor: "Apple", vram: 128, isUnified: true },
+  { name: "Apple M3 Ultra", vendor: "Apple", vram: 128, isUnified: true },
+  { name: "Apple M3 Ultra", vendor: "Apple", vram: 192, isUnified: true },
+  
+  // AMD APUs with unified memory
+  { name: "Ryzen 7 7840U", vendor: "AMD", vram: 32, isUnified: true },
+  { name: "Ryzen 9 7940HS", vendor: "AMD", vram: 32, isUnified: true },
+  { name: "Ryzen 7 6800U", vendor: "AMD", vram: 32, isUnified: true },
+  { name: "Ryzen 9 6900HX", vendor: "AMD", vram: 32, isUnified: true },
+  { name: "Ryzen 7 5800U", vendor: "AMD", vram: 32, isUnified: true },
+  
+  // Intel integrated graphics with unified memory
+  { name: "Core Ultra 7 155H (Meteor Lake)", vendor: "Intel", vram: 32, isUnified: true },
+  { name: "Core Ultra 9 185H", vendor: "Intel", vram: 32, isUnified: true },
+  { name: "Core i7-1370P (Iris Xe)", vendor: "Intel", vram: 32, isUnified: true },
+  { name: "Core i9-13900H (Iris Xe)", vendor: "Intel", vram: 32, isUnified: true },
+  
+  // Qualcomm
+  { name: "Snapdragon X Elite", vendor: "Qualcomm", vram: 32, isUnified: true },
+  { name: "Snapdragon 8cx Gen 3", vendor: "Qualcomm", vram: 32, isUnified: true }
 ];
 
 // Get all GPUs (no filtering except by memory threshold)
 export const getAllGpus = (gpuList) => {
   return gpuList;
+};
+
+// Filter for unified memory GPUs/APUs
+export const getUnifiedMemoryGpus = (gpuList, limit = null) => {
+  // First check if the GPU list has the isUnified property
+  const hasUnifiedProperty = gpuList.some(gpu => 'isUnified' in gpu);
+  
+  const unifiedGpus = hasUnifiedProperty
+    ? gpuList.filter(gpu => gpu.isUnified === true)
+    : gpuList.filter(gpu => {
+        const name = (gpu.name || '').toLowerCase();
+        const vendor = (gpu.vendor || '').toLowerCase();
+        
+        // Apple Silicon
+        if (name.includes('m1') || name.includes('m2') || name.includes('m3') || name.includes('m4')) {
+          return true;
+        }
+        
+        // AMD APUs
+        if (name.includes('ryzen') && (name.includes('u') || name.includes('h') || name.includes('hs'))) {
+          return true;
+        }
+        
+        // Intel integrated
+        if (name.includes('core') && (name.includes('iris') || name.includes('uhd') || name.includes('ultra'))) {
+          return true;
+        }
+        
+        // Qualcomm
+        if (name.includes('snapdragon')) {
+          return true;
+        }
+        
+        return false;
+      });
+  
+  return limit ? unifiedGpus.slice(0, limit) : unifiedGpus;
 };
 
 // Filter for consumer GPUs - now with more relaxed matching
@@ -449,17 +537,90 @@ const inferMemorySizeFromModelName = (modelName) => {
   
   // Apple GPUs
   if (model.includes('apple')) {
-    if (model.includes('m2 ultra')) return 76;
-    if (model.includes('m1 ultra')) return 64;
-    if (model.includes('m2 max')) return 38;
-    if (model.includes('m1 max')) return 32;
-    if (model.includes('m2 pro')) return 32;
-    if (model.includes('m1 pro')) return 32;
-    // Add more Apple models as needed
+    // M1 series
+    if (model.includes('m1 ultra')) {
+      if (model.includes('128')) return 128;
+      return 64; // Default for M1 Ultra
+    }
+    if (model.includes('m1 max')) {
+      if (model.includes('64')) return 64;
+      return 32; // Default for M1 Max
+    }
+    if (model.includes('m1 pro')) {
+      if (model.includes('32')) return 32;
+      return 16; // Default for M1 Pro
+    }
+    if (model.includes('m1')) {
+      if (model.includes('16')) return 16;
+      return 8; // Default for M1
+    }
+    
+    // M2 series
+    if (model.includes('m2 ultra')) {
+      if (model.includes('192')) return 192;
+      if (model.includes('128')) return 128;
+      return 64; // Default for M2 Ultra
+    }
+    if (model.includes('m2 max')) {
+      if (model.includes('96')) return 96;
+      if (model.includes('64')) return 64;
+      return 32; // Default for M2 Max
+    }
+    if (model.includes('m2 pro')) {
+      if (model.includes('32')) return 32;
+      return 16; // Default for M2 Pro
+    }
+    if (model.includes('m2')) {
+      if (model.includes('24')) return 24;
+      if (model.includes('16')) return 16;
+      return 8; // Default for M2
+    }
+    
+    // M3 series
+    if (model.includes('m3 ultra')) {
+      if (model.includes('192')) return 192;
+      return 128; // Default for M3 Ultra
+    }
+    if (model.includes('m3 max')) {
+      if (model.includes('128')) return 128;
+      if (model.includes('64')) return 64;
+      return 36; // Default for M3 Max
+    }
+    if (model.includes('m3 pro')) {
+      if (model.includes('36')) return 36;
+      return 18; // Default for M3 Pro
+    }
+    if (model.includes('m3')) {
+      if (model.includes('24')) return 24;
+      if (model.includes('16')) return 16;
+      return 8; // Default for M3
+    }
   }
   
   // Couldn't determine from common models
   return 0;
+};
+
+// Add isUnified property to GPU objects when processing JSON data
+const addIsUnifiedProperty = (gpu) => {
+  const name = (gpu.name || '').toLowerCase();
+  const vendor = (gpu.vendor || '').toLowerCase();
+  
+  // Check for unified memory architectures
+  if (vendor === 'apple' || name.includes('apple m')) {
+    gpu.isUnified = true;
+  } else if (name.includes('ryzen') && (name.includes('u') || name.includes('h') || name.includes('hs'))) {
+    gpu.isUnified = true;
+  } else if ((vendor === 'intel' || name.includes('intel')) && 
+             (name.includes('iris') || name.includes('uhd') || name.includes('ultra'))) {
+    gpu.isUnified = true;
+  } else if (name.includes('snapdragon')) {
+    gpu.isUnified = true;
+  } else {
+    gpu.isUnified = false;
+  }
+  
+  return gpu;
 };
 
 // Filter GPUs by search query - significantly enhanced version
