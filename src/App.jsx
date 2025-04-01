@@ -143,6 +143,7 @@ const MemoryCard = ({ title, minimum, recommended, description, type, minExceeds
 function App() {
   const [modelParams, setModelParams] = useState(7);
   const [quantization, setQuantization] = useState('FP16');
+  const [kvQuantization, setKvQuantization] = useState('');  // Empty means use model quantization
   const [contextLength, setContextLength] = useState(4096);
   const [batchSize, setBatchSize] = useState(1);
   const [isUnifiedMemory, setIsUnifiedMemory] = useState(false);
@@ -225,13 +226,14 @@ function App() {
     const calculationResults = calculateHardware(
       modelParams,
       quantization,
+      kvQuantization,
       contextLength,
       batchSize,
       isUnifiedMemory,
       1
     );
     setResults(calculationResults);
-  }, [modelParams, quantization, contextLength, batchSize, isUnifiedMemory]);
+  }, [modelParams, quantization, kvQuantization, contextLength, batchSize, isUnifiedMemory]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -309,11 +311,11 @@ function App() {
                 </p>
               </div>
               
-              {/* Quantization Precision */}
+              {/* Model Quantization */}
               <div className="mb-6">
                 <label htmlFor="quantization" className="input-label flex items-center">
-                  Quantization Precision
-                  <Tooltip text="Lower precision uses less memory but may reduce model quality">
+                  Model Quantization
+                  <Tooltip text="Quantization precision for model weights. Lower precision uses less memory but may reduce model quality">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 ml-1 text-gray-400">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-1.17 1.025-3.07 1.025-4.242 0-1.172-1.025-1.172-2.687 0-3.712z" />
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
@@ -335,6 +337,36 @@ function App() {
                 </select>
                 <p className="help-text">
                   {quantizationOptions.find(opt => opt.value === quantization)?.desc}
+                </p>
+              </div>
+
+              {/* KV Cache Quantization */}
+              <div className="mb-6">
+                <label htmlFor="kvQuantization" className="input-label flex items-center">
+                  KV Cache Quantization
+                  <Tooltip text="Optional separate quantization for KV cache. If not set, uses model quantization">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 ml-1 text-gray-400">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-1.17 1.025-3.07 1.025-4.242 0-1.172-1.025-1.172-2.687 0-3.712z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                    </svg>
+                  </Tooltip>
+                </label>
+                <select
+                  id="kvQuantization"
+                  className="block w-full py-2"
+                  value={kvQuantization}
+                  onChange={(e) => setKvQuantization(e.target.value)}
+                  size="5"
+                >
+                  <option value="">Use Model Quantization</option>
+                  {quantizationOptions.map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="help-text">
+                  {kvQuantization ? quantizationOptions.find(opt => opt.value === kvQuantization)?.desc : 'Using same quantization as model weights'}
                 </p>
               </div>
               

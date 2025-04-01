@@ -117,11 +117,12 @@ export const estimateHiddenDim = (modelParams) => {
  * @param {number} batchSize - Batch size
  * @returns {number} KV Cache size in GB
  */
-export const calculateKVCacheGB = (contextLength, layers, hiddenDim, bytesPerParam, batchSize) => {
+export const calculateKVCacheGB = (contextLength, layers, hiddenDim, modelBytesPerParam, kvBytesPerParam, batchSize) => {
   // KV cache stores key and value states for each layer, each head, for the entire sequence
   // Formula: 2 (for K and V) * layers * hidden_dim * context_length * batch_size * bytes_per_param
   // Divide by 1024^3 to convert to GB
-  return (2 * layers * hiddenDim * contextLength * batchSize * bytesPerParam) / (1024 * 1024 * 1024);
+  const kvBytesParameter = kvBytesPerParam || modelBytesPerParam; // If no specific KV quantization, use model quantization
+  return (2 * layers * hiddenDim * contextLength * batchSize * kvBytesParameter) / (1024 * 1024 * 1024);
 };
 
 /**
@@ -144,16 +145,17 @@ export const calculateActivationGB = (modelSizeGB) => {
  * @param {number} numGpus - Number of GPUs in the system or server rack
  * @returns {Object} Object containing VRAM and RAM estimates
  */
-export const calculateHardware = (modelParams, quantization, contextLength, batchSize, isUnifiedMemory = false, numGpus = 1) => {
-  const bytesPerParam = getBytesPerParameter(quantization);
-  const modelSizeGB = calculateModelSizeGB(modelParams, bytesPerParam);
+export const calculateHardware = (modelParams, quantization, kvQuantization, contextLength, batchSize, isUnifiedMemory = false, numGpus = 1) => {
+  const modelBytesPerParam = getBytesPerParameter(quantization);
+  const kvBytesPerParam = kvQuantization ? getBytesPerParameter(kvQuantization) : modelBytesPerParam;
+  const modelSizeGB = calculateModelSizeGB(modelParams, modelBytesPerParam);
   
   // Estimate layers and hidden dim based on model size
   const estLayers = estimateLayers(modelParams);
   const estHiddenDim = estimateHiddenDim(modelParams);
   
   // Calculate KV Cache size
-  const kvCacheGB = calculateKVCacheGB(contextLength, estLayers, estHiddenDim, bytesPerParam, batchSize);
+  const kvCacheGB = calculateKVCacheGB(contextLength, estLayers, estHiddenDim, modelBytesPerParam, kvBytesPerParam, batchSize);
   
   // Calculate activation memory (simplified)
   const activationGB = calculateActivationGB(modelSizeGB);
@@ -209,7 +211,8 @@ export const calculateHardware = (modelParams, quantization, contextLength, batc
       assumptions: {
         estLayers,
         estHiddenDim,
-        bytesPerParam,
+        bytesPerParam: modelBytesPerParam,
+        kvBytesPerParam,
         osOverheadGB,
         activationFactor: 0.2,
         numGpus: 1 // Unified memory typically means 1 GPU/SoC
@@ -244,10 +247,11 @@ export const calculateHardware = (modelParams, quantization, contextLength, batc
     ramRecGB: parseFloat(ramRecGB.toFixed(2)),
     isUnifiedMemory: false,
     // Include assumptions for transparency
-    assumptions: {
-      estLayers,
-      estHiddenDim,
-      bytesPerParam,
+      assumptions: {
+        estLayers,
+        estHiddenDim,
+        bytesPerParam: modelBytesPerParam,
+        kvBytesPerParam,
       osOverheadGB,
       activationFactor: 0.2,
       numGpus
