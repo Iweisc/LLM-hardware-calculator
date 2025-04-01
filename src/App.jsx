@@ -51,11 +51,15 @@ const BarChart = ({ value, max, type }) => {
 };
 
 // Component for displaying memory cards
-const MemoryCard = ({ title, minimum, recommended, description, type }) => {
+const MemoryCard = ({ title, minimum, recommended, description, type, minExceedsLimit, recExceedsLimit, originalMin, originalRec, unifiedMemoryMax }) => {
   // Fixed max values for consistent scaling across all model sizes
   const maxVram = 32; // 24GB is typical high-end GPU VRAM (RTX 4090)
   const maxRam = 96; // 64GB is typical high-end system RAM
   const max = type === "vram" ? maxVram : maxRam;
+  
+  // For unified memory, check if values were capped due to exceeding the limit
+  const showMinWarning = minExceedsLimit && type === "vram";
+  const showRecWarning = recExceedsLimit && type === "vram";
   return (
     <div className={`bg-gray-50 p-5 rounded-xl animated-bg`}>
       <h4 className="text-lg font-medium text-gray-800 mb-3 flex items-center">
@@ -70,7 +74,20 @@ const MemoryCard = ({ title, minimum, recommended, description, type }) => {
           <div className="flex justify-between items-center">
             <div>
               <div className="text-sm font-medium text-gray-600">Minimum</div>
-              <div className={`result-value ${type}-value`}>{minimum} GB</div>
+              <div className={`result-value ${type}-value flex items-center`}>
+                {minimum} GB
+                
+                {/* Show warning for capped values */}
+                {showMinWarning && (
+                  <Tooltip text={`Exceeds unified memory limit! Original: ${originalMin} GB (capped to ${unifiedMemoryMax} GB)`}>
+                    <div className="ml-2 flex items-center justify-end rounded-full bg-amber-50 p-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-amber-500">
+                        <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  </Tooltip>
+                )}
+              </div>
             </div>
             <Tooltip text="The absolute minimum memory required to run the model">
               <div className="cursor-help text-gray-400 hover:text-primary-500">
@@ -88,7 +105,20 @@ const MemoryCard = ({ title, minimum, recommended, description, type }) => {
           <div className="flex justify-between items-center">
             <div>
               <div className="text-sm font-medium text-gray-600">Recommended</div>
-              <div className={`result-value ${type}-value`}>{recommended} GB</div>
+              <div className={`result-value ${type}-value flex items-center`}>
+                {recommended} GB
+                
+                {/* Show warning for capped values */}
+                {showRecWarning && (
+                  <Tooltip text={`Exceeds unified memory limit! Original: ${originalRec} GB (capped to ${unifiedMemoryMax} GB)`}>
+                    <div className="ml-2 flex items-center justify-end rounded-full bg-amber-50 p-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-amber-500">
+                        <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  </Tooltip>
+                )}
+              </div>
             </div>
             <Tooltip text="The recommended amount of memory for optimal performance">
               <div className="cursor-help text-gray-400 hover:text-primary-500">
@@ -111,6 +141,8 @@ function App() {
   const [quantization, setQuantization] = useState('FP16');
   const [contextLength, setContextLength] = useState(4096);
   const [batchSize, setBatchSize] = useState(1);
+  const [isUnifiedMemory, setIsUnifiedMemory] = useState(false);
+  const [numGpus, setNumGpus] = useState(1);
   const [results, setResults] = useState(null);
   const [gpuList, setGpuList] = useState(defaultGpuList);
   const [gpuListLoading, setGpuListLoading] = useState(true);
@@ -192,10 +224,12 @@ function App() {
       modelParams,
       quantization,
       contextLength,
-      batchSize
+      batchSize,
+      isUnifiedMemory,
+      isUnifiedMemory ? 1 : numGpus
     );
     setResults(calculationResults);
-  }, [modelParams, quantization, contextLength, batchSize]);
+  }, [modelParams, quantization, contextLength, batchSize, isUnifiedMemory, numGpus]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -346,7 +380,7 @@ function App() {
               </div>
               
               {/* Batch Size */}
-              <div className="mb-4">
+              <div className="mb-5">
                 <label htmlFor="batchSize" className="input-label flex items-center">
                   Batch Size
                   <Tooltip text="Number of sequences to process in parallel">
@@ -368,6 +402,91 @@ function App() {
                   Number of sequences to process simultaneously (higher values use more memory)
                 </p>
               </div>
+              
+              {/* Memory Type Selection */}
+              <div className="mb-5">
+                <label className="input-label flex items-center">
+                  Memory Architecture
+                  <Tooltip text="Choose between unified memory (shared RAM/VRAM) and discrete GPU memory">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 ml-1 text-gray-400">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-1.17 1.025-3.07 1.025-4.242 0-1.172-1.025-1.172-2.687 0-3.712z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                    </svg>
+                  </Tooltip>
+                </label>
+                
+                <div className="mt-2 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsUnifiedMemory(false)}
+                    className={`flex-1 px-3 py-2 rounded-md text-sm transition-all ${
+                      !isUnifiedMemory 
+                        ? 'bg-primary-100 text-primary-700 font-medium ring-1 ring-primary-400' 
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    Discrete GPU Memory
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsUnifiedMemory(true)}
+                    className={`flex-1 px-3 py-2 rounded-md text-sm transition-all ${
+                      isUnifiedMemory 
+                        ? 'bg-primary-100 text-primary-700 font-medium ring-1 ring-primary-400' 
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    Unified Memory
+                  </button>
+                </div>
+                <p className="help-text">
+                  {isUnifiedMemory 
+                    ? "Unified memory (Apple Silicon, some AMD APUs) - RAM and VRAM share the same pool, max 512GB"
+                    : "Discrete GPU memory - Separate memory pools for GPU and system RAM"}
+                </p>
+              </div>
+              
+              {/* Number of GPUs - only visible if not unified memory */}
+              {!isUnifiedMemory && (
+                <div className="mb-4">
+                  <label htmlFor="numGpus" className="input-label flex items-center">
+                    Number of GPUs
+                    <Tooltip text="Number of GPUs in your system or server rack">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 ml-1 text-gray-400">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 6.75v10.5a2.25 2.25 0 002.25 2.25zm.75-12h9v9h-9v-9z" />
+                      </svg>
+                    </Tooltip>
+                  </label>
+                  <div className="mt-1 mb-3 flex flex-wrap gap-2">
+                    {[1, 2, 4, 8, 16].map(num => (
+                      <button
+                        key={num}
+                        type="button"
+                        onClick={() => setNumGpus(num)}
+                        className={`px-2 py-1 text-xs rounded-md transition-all ${
+                          numGpus === num 
+                            ? 'bg-secondary-100 text-secondary-700 font-medium ring-1 ring-secondary-400' 
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        {num} GPU{num > 1 ? 's' : ''}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    type="number"
+                    id="numGpus"
+                    className="block w-full"
+                    value={numGpus}
+                    onChange={(e) => setNumGpus(Math.max(1, Number(e.target.value) || 1))}
+                    min="1"
+                    step="1"
+                  />
+                  <p className="help-text">
+                    Multi-GPU setups distribute the model across multiple GPUs
+                  </p>
+                </div>
+              )}
             </div>
           </div>
           
@@ -382,17 +501,24 @@ function App() {
             
             {results && (
               <div className="space-y-8">
-                {/* VRAM Requirements */}
-                <MemoryCard 
-                  title="VRAM Requirements"
-                  minimum={results.vramMinGB}
-                  recommended={results.vramRecGB}
-                  description={{
-                    minimum: "Model + Basic Overhead",
-                    recommended: "Model + KV Cache + Activations + Overhead"
-                  }}
-                  type="vram"
-                />
+                {/* VRAM Requirements - Only show for discrete GPU memory */}
+                {!isUnifiedMemory && (
+                  <MemoryCard 
+                    title="VRAM Requirements"
+                    minimum={results.vramMinGB}
+                    recommended={results.vramRecGB}
+                    description={{
+                      minimum: "Model + Basic Overhead",
+                      recommended: "Model + KV Cache + Activations + Overhead"
+                    }}
+                    type="vram"
+                    minExceedsLimit={results.minExceedsLimit}
+                    recExceedsLimit={results.recExceedsLimit}
+                    originalMin={results.originalUnifiedMinGB}
+                    originalRec={results.originalUnifiedRecGB}
+                    unifiedMemoryMax={results.unifiedMemoryMax}
+                  />
+                )}
                 
                 {/* RAM Requirements */}
                 <MemoryCard 
@@ -404,6 +530,11 @@ function App() {
                     recommended: "Minimum + 20% Buffer"
                   }}
                   type="ram"
+                  minExceedsLimit={results.minExceedsLimit}
+                  recExceedsLimit={results.recExceedsLimit}
+                  originalMin={results.originalUnifiedMinGB}
+                  originalRec={results.originalUnifiedRecGB}
+                  unifiedMemoryMax={results.unifiedMemoryMax}
                 />
                 
                 {/* Memory Breakdown */}
@@ -415,12 +546,12 @@ function App() {
                     Memory Breakdown
                   </h3>
                   
-                  <div className="card p-5">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="p-4 bg-gray-50 rounded-lg text-center">
-                        <div className="text-xs text-gray-500 mb-1">Model Size</div>
-                        <div className="text-lg font-semibold text-primary-600">{results.modelSizeGB} GB</div>
-                      </div>
+                <div className="card p-5">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="p-4 bg-gray-50 rounded-lg text-center">
+                      <div className="text-xs text-gray-500 mb-1">Model Size</div>
+                      <div className="text-lg font-semibold text-primary-600">{results.modelSizeGB} GB</div>
+                    </div>
                       
                       <div className="p-4 bg-gray-50 rounded-lg text-center">
                         <div className="text-xs text-gray-500 mb-1">KV Cache</div>
@@ -461,6 +592,33 @@ function App() {
                           <span className="text-gray-600">Activation factor:</span>
                           <span className="font-medium text-gray-800">{results.assumptions.activationFactor * 100}%</span>
                         </div>
+                        {results.isUnifiedMemory ? (
+                          <div className="flex justify-between items-center md:col-span-2">
+                            <span className="text-gray-600">Memory type:</span>
+                            <span className="font-medium text-gray-800 flex items-center">
+                              Unified (max {results.unifiedMemoryMax} GB)
+                              
+                              {/* Show warning if either value exceeds the limit */}
+                              {(results.minExceedsLimit || results.recExceedsLimit) && (
+                                <Tooltip text={`Some calculations exceed the unified memory limit of ${results.unifiedMemoryMax} GB!`}>
+                                  <div className="ml-2 flex items-center justify-end rounded-full bg-amber-50 p-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5 text-amber-500">
+                                      <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
+                                    </svg>
+                                  </div>
+                                </Tooltip>
+                              )}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex justify-between items-center md:col-span-2">
+                            <span className="text-gray-600">Number of GPUs:</span>
+                            <span className="font-medium text-gray-800">
+                              {results.assumptions.numGpus} GPU{results.assumptions.numGpus > 1 ? 's' : ''}
+                              {results.assumptions.numGpus > 1 ? ` (${results.vramRecPerGpu.toFixed(1)} GB/GPU)` : ''}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
