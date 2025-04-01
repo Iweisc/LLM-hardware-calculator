@@ -30,96 +30,9 @@ export const getCachedGpuList = async () => {
   }
 };
 
-// Function to recommend optimal GPU setup based on requirements
-export const recommendOptimalGpuSetup = (requirements, gpuList, isUnifiedMemory) => {
-  if (isUnifiedMemory) {
-    return {
-      optimal: null,
-      performance: null,
-      budget: null
-    };
-  }
-
-  const vramNeeded = requirements.vramRecGB;
-  const vramMinimum = requirements.vramMinGB;
-
-  // Filter GPUs that meet minimum requirements
-  const compatibleGpus = gpuList.filter(gpu => {
-    const vram = getVramFromGpuModel(gpu.name);
-    return vram >= vramMinimum;
-  });
-
-  if (compatibleGpus.length === 0) return {};
-
-  // Sort by various metrics
-  const rankedGpus = compatibleGpus.map(gpu => {
-    const vram = getVramFromGpuModel(gpu.name);
-    const performance = calculatePerformanceScore(gpu);
-    const efficiency = calculateEfficiencyScore(gpu);
-    return {
-      gpu,
-      vram,
-      performance,
-      efficiency,
-      meetsRecommended: vram >= vramNeeded
-    };
-  });
-
-  // Sort by different criteria
-  const byPerformance = [...rankedGpus].sort((a, b) => b.performance - a.performance);
-  const byEfficiency = [...rankedGpus].sort((a, b) => b.efficiency - a.efficiency);
-  const byBalanced = [...rankedGpus].sort((a, b) => 
-    (b.performance * 0.5 + b.efficiency * 0.5) - (a.performance * 0.5 + a.efficiency * 0.5)
-  );
-
-  // Helper function to prepare recommendation
-  const prepareRecommendation = (gpu) => ({
-    gpu: gpu.gpu,
-    count: 1,
-    totalVram: gpu.vram,
-    performance: gpu.performance,
-    efficiency: gpu.efficiency,
-    meetsRecommended: gpu.meetsRecommended
-  });
-
-  return {
-    optimal: byBalanced[0] ? prepareRecommendation(byBalanced[0]) : null,
-    performance: byPerformance[0] ? prepareRecommendation(byPerformance[0]) : null,
-    budget: byEfficiency[0] ? prepareRecommendation(byEfficiency[0]) : null
-  };
-};
-
-// Helper function to calculate a performance score (simplified)
-const calculatePerformanceScore = (gpu) => {
-  const vram = getVramFromGpuModel(gpu.name);
-  let score = vram; // Base score from VRAM
-
-  // Generation multipliers
-  if (gpu.name.toLowerCase().includes('rtx 40')) score *= 1.5;
-  if (gpu.name.toLowerCase().includes('rtx 30')) score *= 1.3;
-  if (gpu.name.toLowerCase().includes('rx 7')) score *= 1.4;
-  if (gpu.name.toLowerCase().includes('rx 6')) score *= 1.2;
-
-  return score;
-};
-
-// Helper function to calculate a cost-efficiency score (simplified)
-const calculateEfficiencyScore = (gpu) => {
-  const vram = getVramFromGpuModel(gpu.name);
-  let score = vram; // Base score from VRAM
-
-  // Efficiency adjustments
-  if (gpu.name.toLowerCase().includes('ti')) score *= 0.8;
-  if (gpu.name.toLowerCase().includes('super')) score *= 0.85;
-  if (gpu.name.toLowerCase().includes('xt')) score *= 0.9;
-
-  return score;
-};
-
-
-// Helper function to determine VRAM based on GPU model name and generation
-const getVramFromGpuModel = (modelName) => {
-  if (!modelName) return 6; // Updated minimum fallback
+// Helper function to determine VRAM based on GPU model name and generation - Now exported
+export const getVramFromGpuModel = (modelName) => {
+  if (!modelName) return 0; // Return 0 if no model name
   
   modelName = modelName.toLowerCase();
   
@@ -288,4 +201,131 @@ const getVramFromGpuModel = (modelName) => {
   return 6;
 };
 
-// (Rest of the file content remains unchanged...)
+// Helper function to calculate a performance score (simplified) - Now exported
+export const calculatePerformanceScore = (gpu) => {
+  const vram = getVramFromGpuModel(gpu.name);
+  let score = vram; // Base score from VRAM
+
+  // Generation multipliers
+  if (gpu.name.toLowerCase().includes('rtx 40')) score *= 1.5;
+  if (gpu.name.toLowerCase().includes('rtx 30')) score *= 1.3;
+  if (gpu.name.toLowerCase().includes('rx 7')) score *= 1.4;
+  if (gpu.name.toLowerCase().includes('rx 6')) score *= 1.2;
+
+  return score;
+};
+
+// Helper function to calculate a cost-efficiency score (simplified) - Now exported
+export const calculateEfficiencyScore = (gpu) => {
+  const vram = getVramFromGpuModel(gpu.name);
+  let score = vram; // Base score from VRAM
+
+  // Efficiency adjustments
+  if (gpu.name.toLowerCase().includes('ti')) score *= 0.8;
+  if (gpu.name.toLowerCase().includes('super')) score *= 0.85;
+  if (gpu.name.toLowerCase().includes('xt')) score *= 0.9;
+
+  return score;
+};
+
+// Function to recommend optimal GPU setup based on requirements
+export const recommendOptimalGpuSetup = (requirements, gpuList, isUnifiedMemory) => {
+  // Handle unified memory or invalid requirements
+  if (isUnifiedMemory || !requirements || typeof requirements.vramRecGB !== 'number' || typeof requirements.vramMinGB !== 'number') {
+    return {
+      optimal: null,
+      performance: null,
+      budget: null
+    };
+  }
+
+  const MAX_GPU_COUNT = 16; // Limit recommendations to a practical number of GPUs
+
+  const vramNeeded = requirements.vramRecGB;
+  const vramMinimum = requirements.vramMinGB;
+
+  if (!gpuList || gpuList.length === 0) return {};
+
+  const potentialSetups = [];
+
+  gpuList.forEach(gpu => {
+    const vram = getVramFromGpuModel(gpu.name);
+    if (vram <= 0) return; // Skip GPUs with invalid VRAM
+
+    const performance = calculatePerformanceScore(gpu);
+    const efficiency = calculateEfficiencyScore(gpu);
+
+    // Calculate count needed for Recommended VRAM
+    const countNeededForRec = Math.ceil(vramNeeded / vram);
+    if (countNeededForRec > 0 && countNeededForRec <= MAX_GPU_COUNT) {
+      potentialSetups.push({
+        gpu,
+        count: countNeededForRec,
+        vramPerGpu: vram,
+        totalVram: countNeededForRec * vram,
+        performance: performance * countNeededForRec, // Simple scaling
+        efficiency: efficiency * countNeededForRec, // Simple scaling
+        meetsRecommended: true
+      });
+    } 
+    
+    // Calculate count needed for Minimum VRAM (only if different from recommended count)
+    const countNeededForMin = Math.ceil(vramMinimum / vram);
+    if (countNeededForMin > 0 && countNeededForMin <= MAX_GPU_COUNT && countNeededForMin !== countNeededForRec) {
+       // Check if this config wasn't already added implicitly by a lower rec count
+       const alreadyAdded = potentialSetups.some(p => p.gpu.name === gpu.name && p.count <= countNeededForMin);
+       if (!alreadyAdded) {
+          potentialSetups.push({
+            gpu,
+            count: countNeededForMin,
+            vramPerGpu: vram,
+            totalVram: countNeededForMin * vram,
+            performance: performance * countNeededForMin, // Simple scaling
+            efficiency: efficiency * countNeededForMin, // Simple scaling
+            meetsRecommended: false // Only meets minimum
+          });
+       }
+    }
+  });
+
+
+  if (potentialSetups.length === 0) return {};
+
+  // Sort configurations: prioritize meeting recommended, then by scores
+  const sortSetups = (setups, key) => {
+    return [...setups].sort((a, b) => {
+      if (a.meetsRecommended !== b.meetsRecommended) {
+        return a.meetsRecommended ? -1 : 1; // true comes first
+      }
+      // If recommendation status is the same, sort by the specified key (descending)
+      return b[key] - a[key];
+    });
+  };
+  
+  const sortBalanced = (setups) => {
+     return [...setups].sort((a, b) => {
+      if (a.meetsRecommended !== b.meetsRecommended) {
+        return a.meetsRecommended ? -1 : 1; // true comes first
+      }
+      // If recommendation status is the same, sort by balanced score (descending)
+      const scoreA = a.performance * 0.5 + a.efficiency * 0.5;
+      const scoreB = b.performance * 0.5 + b.efficiency * 0.5;
+      return scoreB - scoreA;
+    });
+  }
+
+  const byPerformance = sortSetups(potentialSetups, 'performance');
+  const byEfficiency = sortSetups(potentialSetups, 'efficiency');
+  const byBalanced = sortBalanced(potentialSetups);
+
+  // Prepare recommendation format (no changes needed here as the component reads these fields)
+  const prepareRecommendation = (setup) => setup;
+
+  return {
+    optimal: byBalanced[0] ? prepareRecommendation(byBalanced[0]) : null,
+    performance: byPerformance[0] ? prepareRecommendation(byPerformance[0]) : null,
+    budget: byEfficiency[0] ? prepareRecommendation(byEfficiency[0]) : null
+  };
+};
+
+// (Rest of the file content remains unchanged...) - This comment is just for context, not part of the actual file content.
