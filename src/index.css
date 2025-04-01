@@ -167,13 +167,13 @@
   
   /* Enhanced input labels */
   .input-label {
-    @apply block text-sm font-medium text-gray-700 mb-1;
+    @apply block text-sm font-medium text-gray-900 mb-1; /* Changed from text-gray-700 for better light mode contrast */
     @apply dark:text-gray-300; /* Dark label */
   }
   
   /* Help text styling */
   .help-text {
-    @apply mt-1 text-xs text-gray-500;
+    @apply mt-1 text-xs text-gray-700; /* Changed from text-gray-500 for better light mode contrast */
     @apply dark:text-gray-400; /* Dark help text */
   }
 }

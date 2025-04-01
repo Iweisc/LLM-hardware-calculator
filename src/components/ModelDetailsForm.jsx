@@ -112,7 +112,7 @@ const ModelDetailsForm = ({
         <label htmlFor="quantization" className="input-label flex items-center"> {/* Label handled globally */}
           Model Quantization
           <Tooltip text="Quantization precision for model weights. Lower precision uses less memory but may reduce model quality">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 ml-1 text-gray-400 dark:text-gray-500"> {/* Dark tooltip icon */}
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 ml-1 text-gray-600 dark:text-gray-500"> {/* Changed text-gray-400 to text-gray-600 */}
               <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-1.17 1.025-3.07 1.025-4.242 0-1.172-1.025-1.172-2.687 0-3.712z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
             </svg>
@@ -141,7 +141,7 @@ const ModelDetailsForm = ({
         <label htmlFor="kvQuantization" className="input-label flex items-center"> {/* Label handled globally */}
           KV Cache Quantization
           <Tooltip text="Optional separate quantization for KV cache. If not set, uses model quantization">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 ml-1 text-gray-400 dark:text-gray-500"> {/* Dark tooltip icon */}
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 ml-1 text-gray-600 dark:text-gray-500"> {/* Changed text-gray-400 to text-gray-600 */}
               <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-1.17 1.025-3.07 1.025-4.242 0-1.172-1.025-1.172-2.687 0-3.712z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
             </svg>
@@ -171,7 +171,7 @@ const ModelDetailsForm = ({
         <label htmlFor="contextLength" className="input-label flex items-center"> {/* Label handled globally */}
           Context Length
           <Tooltip text="Longer contexts use more memory for attention KV cache">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 ml-1 text-gray-400 dark:text-gray-500"> {/* Dark tooltip icon */}
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 ml-1 text-gray-600 dark:text-gray-500"> {/* Changed text-gray-400 to text-gray-600 */}
               <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" />
             </svg>
           </Tooltip>
@@ -214,7 +214,7 @@ const ModelDetailsForm = ({
         <label htmlFor="batchSize" className="input-label flex items-center"> {/* Label handled globally */}
           Batch Size
           <Tooltip text="Number of sequences to process in parallel">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 ml-1 text-gray-400 dark:text-gray-500"> {/* Dark tooltip icon */}
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 ml-1 text-gray-600 dark:text-gray-500"> {/* Changed text-gray-400 to text-gray-600 */}
               <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" />
             </svg>
           </Tooltip>
@@ -238,7 +238,7 @@ const ModelDetailsForm = ({
         <label className="input-label flex items-center"> {/* Label handled globally */}
           Memory Architecture
           <Tooltip text="Choose between unified memory (shared RAM/VRAM) and discrete GPU memory">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 ml-1 text-gray-400 dark:text-gray-500"> {/* Dark tooltip icon */}
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 ml-1 text-gray-600 dark:text-gray-500"> {/* Changed text-gray-400 to text-gray-600 */}
               <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-1.17 1.025-3.07 1.025-4.242 0-1.172-1.025-1.172-2.687 0-3.712z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
             </svg>
