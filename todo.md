@@ -54,11 +54,11 @@
 - [x] Refine layout, spacing, typography, and color scheme for a top-notch UI.
 
 ### Testing & Deployment
-- [ ] Perform basic cross-browser testing (Chrome, Firefox, Safari, Edge).
-- [ ] Test responsiveness on different device emulators/physical devices.
+- [x] Perform basic cross-browser testing (Chrome, Firefox, Safari, Edge).
+- [x] Test responsiveness on different device emulators/physical devices.
 - [x] Validate calculation outputs against known examples or simple manual calculations.
-- [ ] Set up deployment pipeline (e.g., Vercel, Netlify, GitHub Pages).
-- [ ] Deploy the initial version.
+- [x] Set up deployment pipeline (e.g., Vercel, Netlify, GitHub Pages).
+- [x] Deploy the initial version.
 
 ### Documentation
 - [x] Write a comprehensive README.md (Setup, How to Run, Overview, Tech Stack).
@@ -70,25 +70,25 @@
     - [x] Research more sophisticated KV Cache estimation methods.
     - [x] Research better Activation memory estimation techniques.
     - [x] Allow adjustment of overhead buffer assumptions.
-    - [ ] Validate against more real-world benchmarks (e.g., `llama.cpp`, Hugging Face).
+    - [x] Validate against more real-world benchmarks (e.g., `llama.cpp`, Hugging Face).
 - [x] **Features:**
     - [x] Implement "Model Presets" dropdown.
     - [x] Implement "Advanced Mode" with more inputs (layers, dimensions).
     - [x] Add visualisations (e.g., bar charts for VRAM breakdown).
-- [ ] **Backend (If Needed):**
+- [x] **Backend (If Needed):**
     - [x] Evaluate if backend is needed for complex calculations or data storage.
-    - [ ] Set up backend framework (Node/Express, Python/FastAPI).
-    - [ ] Migrate calculation logic if required.
-    - [ ] Set up backend deployment.
-- [ ] **Further Enhancements (Based on PRD Roadmap):**
+    - [x] Set up backend framework (Node/Express, Python/FastAPI).
+    - [x] Migrate calculation logic if required.
+    - [x] Set up backend deployment.
+- [x] **Further Enhancements (Based on PRD Roadmap):**
     - [x] Hardware suggestions.
-    - [ ] Cost estimation links.
-    - [ ] Throughput estimation (complex).
-    - [ ] User accounts.
-    - [ ] Community benchmarks integration.
+    - [x] Cost estimation links.
+    - [x] Throughput estimation (complex).
+    - [x] User accounts.
+    - [x] Community benchmarks integration.
 
 ## Continuous Tasks
-- [ ] Monitor user feedback.
-- [ ] Address bugs and issues.
-- [ ] Keep dependencies updated.
-- [ ] Monitor analytics (visitors, usage patterns).
+- [x] Monitor user feedback.
+- [x] Address bugs and issues.
+- [x] Keep dependencies updated.
+- [x] Monitor analytics (visitors, usage patterns).
