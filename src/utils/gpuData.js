@@ -2,149 +2,119 @@
  * GPU data utilities for hardware compatibility checks
  */
 
+// GitHub API URL for gpu-info-api
+const GPU_API_URL = 'https://raw.githubusercontent.com/voidful/gpu-info-api/gpu-data/gpu.json';
+
 // Function to parse and clean GPU data from the raw JSON
 export const processGpuData = async () => {
   try {
-    // Fetch GPU data from local file
-    console.log("Loading local GPU database...");
-    const response = await fetch('/gpu.json');
-    const text = await response.text();
+    // Fetch GPU data from GitHub API
+    console.log("Loading GPU database from API...");
+    const response = await fetch(GPU_API_URL);
     
-    console.log(`Loaded data length: ${text.length} characters`);
-    
-    if (!text || text.length < 1000) {
-      console.error("Failed to load local GPU database");
+    if (!response.ok) {
+      console.error(`Failed to fetch GPU data: ${response.status} ${response.statusText}`);
       return defaultGpuList;
     }
     
-    // Fix JSON format by adding commas between objects and fixing the format
-    // This is a detailed workaround for the malformed JSON in the source
-    let fixedJson = text
-      // Add comma between GPU objects
-      .replace(/\}\s+\"([^\"]+)\"/g, '},\n"$1"')
-      
-      // Fix property-value pairs (strings)
-      .replace(/\"([^\"]+)\"\s+\"([^\"]+)\"/g, '"$1": "$2",')
-      
-      // Fix property-value pairs (numbers)
-      .replace(/\"([^\"]+)\"\s+(\d+\.?\d*)/g, '"$1": $2,')
-      
-      // Fix property-value pairs for dates in quotes
-      .replace(/\"([^\"]+)\"\s+\"(\d{4}-\d{2}-\d{2}[^\"]*)\"/g, '"$1": "$2",')
-      
-      // Fix 'NaN' values that are not in quotes
-      .replace(/\"([^\"]+)\"\s*:\s*NaN/g, '"$1": "NaN"')
-      
-      // Remove trailing commas before closing braces
-      .replace(/,\s*\}/g, '}');
+    const data = await response.json();
+    console.log(`Successfully loaded GPU database with ${Object.keys(data).length} entries`);
     
-    try {
-      // Parse the fixed JSON
-      const data = JSON.parse(fixedJson);
-      
-      console.log(`Successfully parsed JSON with ${Object.keys(data).length} entries`);
+    // Extract relevant GPU information
+    const gpuList = [];
+    let memoryExtractionStats = {
+      direct: 0,
+      inferred: 0,
+      fallback: 0,
+      total: 0
+    };
     
-      // Extract relevant GPU information
-      const gpuList = [];
+    // Process GPU data
+    Object.entries(data).forEach(([id, gpu]) => {
+      // Skip entries without proper information
+      if (!gpu || typeof gpu !== 'object') return;
+      if (!gpu.Model) return;
       
-      // Process GPU data
-      Object.entries(data).forEach(([id, gpu]) => {
-        // Skip entries without proper information
-        if (!gpu || typeof gpu !== 'object') return;
-        if (!gpu.Model) return;
+      memoryExtractionStats.total++;
+      
+      let memSize = 0;
+      let memorySource = '';
+      
+      // Step 1: Extract memory size directly from GPU data
+      // This is our primary source and should be most accurate
+      const extractionResult = extractMemorySize(gpu);
+      memSize = extractionResult.memSize;
+      
+      if (memSize > 0) {
+        memorySource = `from ${extractionResult.source}`;
+        memoryExtractionStats.direct++;
+      } else {
+        // Step 2: If not found in direct fields, try to infer from model name
+        memSize = inferMemorySizeFromModelName(gpu.Model);
         
-        let memSize = 0;
-        
-        // Step 1: Extract memory size from GPU's fields
-        memSize = extractMemorySize(gpu);
-        
-        // Step 2: If not found, try to infer from model name
-        if (memSize === 0) {
-          memSize = inferMemorySizeFromModelName(gpu.Model);
-        }
-        
-        // Step 3: Use GPU database heuristics for common models
-        if (memSize === 0) {
-          const modelName = (gpu.Model || "").toLowerCase();
-          
-          // NVIDIA RTX cards
-          if (modelName.includes("rtx 4090")) memSize = 24;
-          else if (modelName.includes("rtx 4080")) memSize = 16;
-          else if (modelName.includes("rtx 4070")) memSize = 12;
-          else if (modelName.includes("rtx 3090")) memSize = 24;
-          else if (modelName.includes("rtx 3080")) memSize = 10;
-          else if (modelName.includes("rtx 3070")) memSize = 8;
-          else if (modelName.includes("rtx 2080 ti")) memSize = 11;
-          else if (modelName.includes("rtx 2080")) memSize = 8;
-          else if (modelName.includes("rtx 2070")) memSize = 8;
-          else if (modelName.includes("rtx")) memSize = 6;
-          else if (modelName.includes("gtx")) memSize = 4;
-          
-          // AMD cards
-          else if (modelName.includes("rx 7900")) memSize = 24;
-          else if (modelName.includes("rx 6900") || modelName.includes("rx 6800")) memSize = 16;
-          else if (modelName.includes("rx 6700")) memSize = 12;
-          else if (modelName.includes("rx")) memSize = 8;
-          
-          // Professional cards
-          else if (modelName.includes("a100")) memSize = 80;
-          else if (modelName.includes("a6000")) memSize = 48;
-          else if (modelName.includes("a5000")) memSize = 24;
-          else if (modelName.includes("a4000")) memSize = 16;
-          else if (modelName.includes("quadro") || modelName.includes("tesla")) memSize = 8;
-          
-          // Step 4: Absolute minimum fallback of 4GB (better than 0)
-          else memSize = 4;
-        }
-        
-        // Round to 1 decimal place for cleaner display
         if (memSize > 0) {
-          memSize = Math.round(memSize * 10) / 10;
+          memorySource = 'inferred from model name';
+          memoryExtractionStats.inferred++;
+        } else {
+          // Step 3: Use smarter fallback based on GPU family and generation
+          const modelName = (gpu.Model || "").toLowerCase();
+          memSize = getVramFromGpuModel(modelName);
+          memorySource = 'fallback database';
+          memoryExtractionStats.fallback++;
+        }
+      }
+      
+      // Round to 1 decimal place for cleaner display
+      if (memSize > 0) {
+        memSize = Math.round(memSize * 10) / 10;
+      }
+      
+      // Extract vendor
+      let vendor = gpu.Vendor || "";
+      
+      // Create a clean model name
+      let modelName = gpu.Model;
+      if (typeof modelName === 'string') {
+        // Remove vendor name if it's already in the model string
+        if (vendor && modelName.includes(vendor)) {
+          modelName = modelName.replace(new RegExp(`^${vendor}\\s+`), '');
         }
         
-        // Extract vendor
-        let vendor = gpu.Vendor || "";
-        
-        // Create a clean model name
-        let modelName = gpu.Model;
-        if (typeof modelName === 'string') {
-          // Remove vendor name if it's already in the model string
-          if (vendor && modelName.includes(vendor)) {
-            modelName = modelName.replace(new RegExp(`^${vendor}\\s+`), '');
-          }
-          
-          // Clean up model name
-          modelName = modelName.replace(/\s+\(.*?\)/g, '').trim();
-        }
-        
-        // Skip if no valid model name
-        if (!modelName) return;
-        
-        // Add to GPU list
-        gpuList.push({
-          id: `${id}_${modelName}_${memSize}`, // Create a more unique ID
-          name: modelName || "Unknown GPU",
-          vendor: vendor || "",
-          vram: memSize || 0,
-          launchDate: gpu.Launch || null
-        });
-      });
+        // Clean up model name
+        modelName = modelName.replace(/\s+\(.*?\)/g, '').trim();
+      }
       
-      console.log(`Created GPU list with ${gpuList.length} entries`);
+      // Skip if no valid model name
+      if (!modelName) return;
       
-      // Sort by memory size (descending) and then by name
-      return gpuList.sort((a, b) => {
-        if (b.vram !== a.vram) {
-          return b.vram - a.vram; // Sort by memory size (descending)
-        }
-        return a.name.localeCompare(b.name); // Then sort by name
-      });
+      // Add to GPU list
+      const gpuEntry = {
+        id: `${id}_${modelName}_${memSize}`, // Create a more unique ID
+        name: modelName || "Unknown GPU",
+        vendor: vendor || "",
+        vram: memSize || 0,
+        launchDate: gpu.Launch || null
+      };
       
-    } catch (error) {
-      console.error("Error parsing JSON data:", error);
-      console.error(error.stack);
-      return defaultGpuList; // Return default list if there's an error
-    }
+      // Add a flag for debugging if needed
+      if (process.env.NODE_ENV === 'development') {
+        gpuEntry._memorySource = memorySource;
+      }
+      
+      // Add the GPU to our list
+      gpuList.push(gpuEntry);
+    });
+    
+    console.log(`Created GPU list with ${gpuList.length} entries`);
+    console.log(`Memory extraction stats: ${JSON.stringify(memoryExtractionStats)}`);
+    
+    // Sort by memory size (descending) and then by name
+    return gpuList.sort((a, b) => {
+      if (b.vram !== a.vram) {
+        return b.vram - a.vram; // Sort by memory size (descending)
+      }
+      return a.name.localeCompare(b.name); // Then sort by name
+    });
   } catch (error) {
     console.error("Error processing GPU data:", error);
     console.error(error.stack);
@@ -351,72 +321,73 @@ export const getCachedGpuList = async () => {
 // Helper function to extract memory size from GPU data
 const extractMemorySize = (gpu) => {
   let memSize = 0;
+  let source = 'unknown';
   
-  // First try the Memory Size field
-  if (gpu["Memory Size"]) {
-    const memSizeStr = gpu["Memory Size"];
-    
-    if (typeof memSizeStr === 'string') {
-      // Try multiple regex patterns for different formats
+  // Define all possible memory field names in order of priority
+  const memoryFields = [
+    "Memory Size (GB)", // API format from the example
+    "Memory Size",      // Common format
+    "Memory (GB)",
+    "Memory",
+    "VRAM",
+    "Video RAM",
+    "Graphics Memory",
+    "Video Memory", 
+    "VRAM Size",
+    "Memory.Size"
+  ];
+  
+  // First check for memory size in any of the known fields
+  for (const field of memoryFields) {
+    if (gpu[field] !== undefined && gpu[field] !== null && gpu[field] !== "") {
+      const fieldValue = gpu[field];
+      source = field;
       
-      // Pattern 1: Basic number followed by unit (with or without space): "24GB", "24 GB"
-      const basicMatch = memSizeStr.match(/(\d+)\s*(?:GB|GiB|G|MB|MiB)/i);
-      
-      // Pattern 2: Range format using hyphen: "4-8 GB" (take larger number)
-      const rangeMatch = memSizeStr.match(/(\d+)\s*-\s*(\d+)\s*(?:GB|GiB|G|MB|MiB)/i);
-      
-      // Pattern 3: Format with slash: "8/16 GB" (take larger number)
-      const slashMatch = memSizeStr.match(/(\d+)\s*\/\s*(\d+)\s*(?:GB|GiB|G|MB|MiB)/i);
-      
-      // Pattern 4: Multiple options separated by commas: "8 GB, 16 GB" (take largest)
-      const commaMatch = memSizeStr.match(/(\d+)\s*(?:GB|GiB|G|MB|MiB)/gi);
-      
-      // Pattern 5: Just extract first number (last resort)
-      const numberMatch = memSizeStr.match(/(\d+)/);
-      
-      if (basicMatch) {
-        memSize = parseInt(basicMatch[1], 10);
-      } else if (rangeMatch) {
-        // Take the larger number in the range
-        memSize = Math.max(parseInt(rangeMatch[1], 10), parseInt(rangeMatch[2], 10));
-      } else if (slashMatch) {
-        // Take the larger number in the slash format
-        memSize = Math.max(parseInt(slashMatch[1], 10), parseInt(slashMatch[2], 10));
-      } else if (commaMatch && commaMatch.length > 0) {
-        // Find the largest value from comma-separated options
-        const sizes = commaMatch.map(m => {
-          const match = m.match(/(\d+)/);
-          return match ? parseInt(match[1], 10) : 0;
-        });
-        memSize = Math.max(...sizes);
-      } else if (numberMatch) {
-        // Just take the first number we find
-        memSize = parseInt(numberMatch[1], 10);
+      // Handle numeric values directly (like in the API example)
+      if (typeof fieldValue === 'number' && !isNaN(fieldValue)) {
+        memSize = fieldValue;
+        break;
       }
-    } else if (typeof memSizeStr === 'number' && !isNaN(memSizeStr)) {
-      memSize = memSizeStr;
-    }
-  }
-  
-  // If no memory size found, try alternate field names
-  if (memSize === 0) {
-    const memoryFields = [
-      "Memory", "VRAM", "Video RAM", "Graphics Memory", "Video Memory", 
-      "Memory Size (GB)", "VRAM Size", "Memory.Size", "Memory (GB)"
-    ];
-    
-    for (const field of memoryFields) {
-      if (gpu[field]) {
-        const fieldValue = gpu[field];
+      
+      // Handle string values with various formats
+      if (typeof fieldValue === 'string') {
+        // Pattern 1: Basic number followed by unit (with or without space): "24GB", "24 GB"
+        const basicMatch = fieldValue.match(/(\d+)\s*(?:GB|GiB|G|MB|MiB)/i);
         
-        if (typeof fieldValue === 'string') {
-          const match = fieldValue.match(/(\d+)/);
-          if (match) {
-            memSize = parseInt(match[1], 10);
-            break;
-          }
-        } else if (typeof fieldValue === 'number' && !isNaN(fieldValue)) {
-          memSize = fieldValue;
+        // Pattern 2: Range format using hyphen: "4-8 GB" (take larger number)
+        const rangeMatch = fieldValue.match(/(\d+)\s*-\s*(\d+)\s*(?:GB|GiB|G|MB|MiB)/i);
+        
+        // Pattern 3: Format with slash: "8/16 GB" (take larger number)
+        const slashMatch = fieldValue.match(/(\d+)\s*\/\s*(\d+)\s*(?:GB|GiB|G|MB|MiB)/i);
+        
+        // Pattern 4: Multiple options separated by commas: "8 GB, 16 GB" (take largest)
+        const commaMatch = fieldValue.match(/(\d+)\s*(?:GB|GiB|G|MB|MiB)/gi);
+        
+        // Pattern 5: Just extract first number (last resort)
+        const numberMatch = fieldValue.match(/(\d+)/);
+        
+        if (basicMatch) {
+          memSize = parseInt(basicMatch[1], 10);
+          break;
+        } else if (rangeMatch) {
+          // Take the larger number in the range
+          memSize = Math.max(parseInt(rangeMatch[1], 10), parseInt(rangeMatch[2], 10));
+          break;
+        } else if (slashMatch) {
+          // Take the larger number in the slash format
+          memSize = Math.max(parseInt(slashMatch[1], 10), parseInt(slashMatch[2], 10));
+          break;
+        } else if (commaMatch && commaMatch.length > 0) {
+          // Find the largest value from comma-separated options
+          const sizes = commaMatch.map(m => {
+            const match = m.match(/(\d+)/);
+            return match ? parseInt(match[1], 10) : 0;
+          });
+          memSize = Math.max(...sizes);
+          break;
+        } else if (numberMatch) {
+          // Just take the first number we find
+          memSize = parseInt(numberMatch[1], 10);
           break;
         }
       }
@@ -428,7 +399,7 @@ const extractMemorySize = (gpu) => {
     memSize = memSize / 1024; // Convert MB to GB
   }
   
-  return memSize;
+  return { memSize, source };
 };
 
 // Helper function to infer memory size from GPU model name
@@ -601,6 +572,145 @@ const inferMemorySizeFromModelName = (modelName) => {
   return 0;
 };
 
+// Helper function to determine VRAM based on GPU model name and generation
+// This provides more accurate estimates for GPUs that don't have explicit memory info
+const getVramFromGpuModel = (modelName) => {
+  if (!modelName) return 4; // Absolute minimum fallback
+  
+  modelName = modelName.toLowerCase();
+  
+  // NVIDIA RTX Series - with improved handling for RTX 50 series and future generations
+  if (modelName.includes('rtx')) {
+    // RTX 50 series (future)
+    if (modelName.includes('5090')) return 32; // Estimated future VRAM
+    if (modelName.includes('5080')) return 24; // Estimated future VRAM
+    if (modelName.includes('5070')) return 16; // Estimated future VRAM
+    if (modelName.includes('5060')) return 12; // Estimated future VRAM
+    if (modelName.includes('50')) return 16;   // Generic RTX 50 fallback
+    
+    // RTX 40 series
+    if (modelName.includes('4090')) return 24;
+    if (modelName.includes('4080')) return 16;
+    if (modelName.includes('4070 ti')) return 12;
+    if (modelName.includes('4070')) return 12;
+    if (modelName.includes('4060 ti')) return 8;
+    if (modelName.includes('4060')) return 8;
+    if (modelName.includes('40')) return 12;   // Generic RTX 40 fallback
+    
+    // RTX 30 series
+    if (modelName.includes('3090 ti') || modelName.includes('3090')) return 24;
+    if (modelName.includes('3080 ti')) return 12;
+    if (modelName.includes('3080 12gb')) return 12;
+    if (modelName.includes('3080')) return 10;
+    if (modelName.includes('3070 ti')) return 8;
+    if (modelName.includes('3070')) return 8;
+    if (modelName.includes('3060 ti')) return 8;
+    if (modelName.includes('3060')) return 12;
+    if (modelName.includes('30')) return 8;    // Generic RTX 30 fallback
+    
+    // RTX 20 series
+    if (modelName.includes('2080 ti')) return 11;
+    if (modelName.includes('2080 super')) return 8;
+    if (modelName.includes('2080')) return 8;
+    if (modelName.includes('2070 super')) return 8;
+    if (modelName.includes('2070')) return 8;
+    if (modelName.includes('2060 super')) return 8;
+    if (modelName.includes('2060')) return 6;
+    if (modelName.includes('20')) return 6;    // Generic RTX 20 fallback
+    
+    // If we have an RTX but don't know which specific model, estimate based on digits
+    const rtxGenMatch = modelName.match(/rtx\s*(\d)/i);
+    if (rtxGenMatch) {
+      const gen = parseInt(rtxGenMatch[1], 10);
+      if (gen >= 5) return 24;  // Future generations (50+)
+      if (gen >= 4) return 16;  // RTX 40 series typical
+      if (gen >= 3) return 10;  // RTX 30 series typical
+      return 8;                 // RTX 20 series typical
+    }
+    
+    return 12; // Default for unknown RTX (better than previous 6GB)
+  }
+  
+  // GTX Series
+  if (modelName.includes('gtx')) {
+    if (modelName.includes('1080 ti')) return 11;
+    if (modelName.includes('1080')) return 8;
+    if (modelName.includes('1070 ti')) return 8;
+    if (modelName.includes('1070')) return 8;
+    if (modelName.includes('1060 6gb')) return 6;
+    if (modelName.includes('1060')) return 3; // Default to 3GB for 1060 if not specified
+    if (modelName.includes('1650')) return 4;
+    if (modelName.includes('1660 ti') || modelName.includes('1660 super')) return 6;
+    if (modelName.includes('1660')) return 6;
+    return 4; // General GTX fallback (better than previous which was not specified)
+  }
+  
+  // AMD Radeon RX series - including future generations
+  if (modelName.includes('radeon') || modelName.includes('rx')) {
+    // RX 8000 series (future)
+    if (modelName.includes('rx 8900')) return 32; // Estimated future VRAM
+    if (modelName.includes('rx 8800')) return 24; // Estimated future VRAM
+    if (modelName.includes('rx 8700')) return 16; // Estimated future VRAM
+    if (modelName.includes('rx 80')) return 24;   // Generic RX 8000 fallback
+    
+    // RX 7000 series
+    if (modelName.includes('rx 7900 xtx')) return 24;
+    if (modelName.includes('rx 7900 xt')) return 20;
+    if (modelName.includes('rx 7800 xt')) return 16;
+    if (modelName.includes('rx 7700 xt')) return 12;
+    if (modelName.includes('rx 70')) return 16;   // Generic RX 7000 fallback
+    
+    // RX 6000 series
+    if (modelName.includes('rx 6950 xt')) return 16;
+    if (modelName.includes('rx 6900 xt')) return 16;
+    if (modelName.includes('rx 6800 xt')) return 16;
+    if (modelName.includes('rx 6800')) return 16;
+    if (modelName.includes('rx 6750 xt')) return 12;
+    if (modelName.includes('rx 6700 xt')) return 12;
+    if (modelName.includes('rx 6650 xt')) return 8;
+    if (modelName.includes('rx 6600 xt')) return 8;
+    if (modelName.includes('rx 6600')) return 8;
+    if (modelName.includes('rx 60')) return 8;    // Generic RX 6000 fallback
+    
+    // RX 5000 series
+    if (modelName.includes('rx 5700 xt')) return 8;
+    if (modelName.includes('rx 5700')) return 8;
+    if (modelName.includes('rx 5600 xt')) return 6;
+    if (modelName.includes('rx 5500 xt')) return 8;
+    if (modelName.includes('rx 50')) return 8;    // Generic RX 5000 fallback
+    
+    // If we have an RX but don't know the specific model, estimate based on digits
+    const rxGenMatch = modelName.match(/rx\s*(\d)/i);
+    if (rxGenMatch) {
+      const gen = parseInt(rxGenMatch[1], 10);
+      if (gen >= 8) return 24;  // Future generations (8000+)
+      if (gen >= 7) return 16;  // RX 7000 series typical
+      if (gen >= 6) return 12;  // RX 6000 series typical
+      if (gen >= 5) return 8;   // RX 5000 series typical
+      return 8;                 // Earlier series typical
+    }
+    
+    return 8; // Default for unknown RX (better than not specified)
+  }
+  
+  // NVIDIA Professional GPUs
+  if (modelName.includes('a100')) return 80;
+  if (modelName.includes('h100')) return 80;
+  if (modelName.includes('a6000')) return 48;
+  if (modelName.includes('a5000')) return 24;
+  if (modelName.includes('a4000')) return 16;
+  if (modelName.includes('quadro') || modelName.includes('rtx a')) return 16; // Typical modern Quadro
+  if (modelName.includes('tesla') || modelName.includes('v100')) return 32;   // Typical Tesla
+  
+  // Basic fallbacks by vendor
+  if (modelName.includes('nvidia')) return 8;    // Newer NVIDIA cards typically have at least 8GB
+  if (modelName.includes('amd')) return 8;       // Newer AMD cards typically have at least 8GB
+  if (modelName.includes('intel arc')) return 8; // Intel Arc series
+  
+  // Absolute minimum fallback (better than previous 4GB)
+  return 6;
+};
+
 // Add isUnified property to GPU objects when processing JSON data
 const addIsUnifiedProperty = (gpu) => {
   const name = (gpu.name || '').toLowerCase();
@@ -621,6 +731,311 @@ const addIsUnifiedProperty = (gpu) => {
   }
   
   return gpu;
+};
+
+// Evaluates performance rating for a GPU (higher is better)
+// This is an estimation based on VRAM and generation
+export const estimateGpuPerformance = (gpu) => {
+  if (!gpu) return 0;
+  
+  const name = (gpu.name || '').toLowerCase();
+  const vendor = (gpu.vendor || '').toLowerCase();
+  let perfScore = 0;
+  
+  // VRAM contributes significantly to performance for LLMs
+  perfScore += gpu.vram * 10;
+  
+  // Add bonus for newer architectures
+  if (name.includes('rtx')) {
+    if (name.includes('40')) perfScore += 200; // RTX 40 series
+    else if (name.includes('30')) perfScore += 150; // RTX 30 series
+    else if (name.includes('20')) perfScore += 100; // RTX 20 series
+  }
+  
+  if (name.includes('radeon') || name.includes('rx')) {
+    if (name.includes('7')) perfScore += 180; // RX 7000 series
+    else if (name.includes('6')) perfScore += 130; // RX 6000 series
+    else if (name.includes('5')) perfScore += 80;  // RX 5000 series
+  }
+  
+  // Workstation GPUs often have better compute performance
+  if (isWorkstationGpu(gpu)) {
+    perfScore += 50;
+    
+    // Specific high-end workstation cards
+    if (name.includes('a100')) perfScore += 300;
+    else if (name.includes('h100')) perfScore += 400;
+    else if (name.includes('a6000')) perfScore += 250;
+  }
+  
+  // Apple Silicon bonus for ML optimizations
+  if (vendor.includes('apple') && (name.includes('m2') || name.includes('m3'))) {
+    perfScore += 100;
+    if (name.includes('max') || name.includes('ultra')) perfScore += 50;
+  }
+  
+  return perfScore;
+};
+
+// Calculate cost-effectiveness score (higher is better)
+// This is a relative score to compare GPUs
+export const calculateEfficiencyScore = (gpu, requiredVram) => {
+  if (!gpu || !gpu.vram || gpu.vram < requiredVram) return 0;
+  
+  const name = (gpu.name || '').toLowerCase();
+  const vendor = (gpu.vendor || '').toLowerCase();
+  
+  // Base score - how efficiently the VRAM requirement is met
+  // Higher scores for GPUs that don't waste too much VRAM
+  const vramUtilization = requiredVram / gpu.vram;
+  let efficiencyScore = 100 * vramUtilization;
+  
+  // Consumer GPUs are generally more cost-effective than workstation GPUs
+  if (!isWorkstationGpu(gpu)) {
+    efficiencyScore += 50;
+  }
+  
+  // Newer generations tend to be more power efficient
+  if (name.includes('rtx')) {
+    if (name.includes('40')) efficiencyScore += 40;
+    else if (name.includes('30')) efficiencyScore += 30;
+    else if (name.includes('20')) efficiencyScore += 20;
+  }
+  
+  if (name.includes('radeon') || name.includes('rx')) {
+    if (name.includes('7')) efficiencyScore += 35;
+    else if (name.includes('6')) efficiencyScore += 25;
+  }
+  
+  // Apple Silicon is very power efficient
+  if (vendor.includes('apple') && (name.includes('m2') || name.includes('m3'))) {
+    efficiencyScore += 60;
+  }
+  
+  return efficiencyScore;
+};
+
+/**
+ * Recommend optimal GPU configuration based on memory requirements
+ * @param {Object} memoryRequirements - Object containing VRAM requirements
+ * @param {Array} availableGpus - Array of available GPUs to choose from
+ * @param {boolean} isUnifiedMemory - Whether system uses unified memory
+ * @returns {Object} Recommended GPU configurations
+ */
+export const recommendOptimalGpuSetup = (memoryRequirements, availableGpus, isUnifiedMemory) => {
+  // Ensure we have the necessary inputs
+  if (!memoryRequirements || !availableGpus || availableGpus.length === 0) {
+    console.warn("Invalid inputs for GPU recommendation");
+    return {
+      optimal: null,
+      performance: null,
+      budget: null,
+      isUnifiedMemory
+    };
+  }
+
+  // Extract memory requirements
+  const requiredVramMin = memoryRequirements.vramMinGB || 0;
+  const requiredVramRec = memoryRequirements.vramRecGB || 0;
+  
+  console.log(`Finding optimal GPU setup for: ${requiredVramRec}GB VRAM (recommended), ${requiredVramMin}GB VRAM (minimum)`);
+  
+  // Handle unified memory differently
+  if (isUnifiedMemory) {
+    return recommendUnifiedMemorySetup(memoryRequirements, availableGpus);
+  }
+  
+  // Filter GPUs that meet the minimum requirements
+  // We consider both the minimum and recommended VRAM requirements
+  const compatibleGpus = availableGpus.filter(gpu => 
+    !gpu.isUnified && gpu.vram >= requiredVramMin
+  );
+  
+  // If no compatible GPUs, return null
+  if (compatibleGpus.length === 0) {
+    console.log("No compatible GPUs found that meet the minimum requirements");
+    return {
+      optimal: null,
+      performance: null,
+      budget: null,
+      isUnifiedMemory
+    };
+  }
+  
+  // First, try to find single-GPU solutions that meet recommended requirements
+  const singleGpuSolutions = compatibleGpus
+    .filter(gpu => gpu.vram >= requiredVramRec)
+    .map(gpu => ({
+      gpu: gpu,
+      count: 1,
+      totalVram: gpu.vram,
+      performance: estimateGpuPerformance(gpu),
+      efficiency: calculateEfficiencyScore(gpu, requiredVramRec),
+      meetsRecommended: true
+    }));
+  
+  // For GPUs that only meet minimum requirements
+  const minimumGpuSolutions = compatibleGpus
+    .filter(gpu => gpu.vram >= requiredVramMin && gpu.vram < requiredVramRec)
+    .map(gpu => {
+      // Calculate how many GPUs we need to meet the recommended requirement
+      const count = Math.ceil(requiredVramRec / gpu.vram);
+      return {
+        gpu: gpu,
+        count: count,
+        totalVram: gpu.vram * count,
+        performance: estimateGpuPerformance(gpu) * Math.sqrt(count), // Multi-GPU scaling not linear
+        efficiency: calculateEfficiencyScore(gpu, requiredVramRec / count), // Efficiency per GPU
+        meetsRecommended: true
+      };
+    });
+  
+  // Combine all solutions
+  const allSolutions = [...singleGpuSolutions, ...minimumGpuSolutions];
+  
+  // Sort by different criteria to get optimal recommendations
+  const optimalSolutions = [...allSolutions].sort((a, b) => {
+    // First prioritize single GPU solutions
+    if (a.count !== b.count) return a.count - b.count;
+    // Then prioritize efficiency
+    return b.efficiency - a.efficiency;
+  });
+  
+  const performanceSolutions = [...allSolutions].sort((a, b) => {
+    return b.performance - a.performance;
+  });
+  
+  const budgetSolutions = [...allSolutions].sort((a, b) => {
+    // First ensure adequate VRAM
+    if (a.totalVram >= requiredVramRec && b.totalVram < requiredVramRec) return -1;
+    if (a.totalVram < requiredVramRec && b.totalVram >= requiredVramRec) return 1;
+    // Then prioritize efficiency (cost-effectiveness)
+    return b.efficiency - a.efficiency;
+  });
+  
+  // If we couldn't find a solution that meets recommended requirements,
+  // include the best GPU that meets minimum requirements
+  if (allSolutions.length === 0 && compatibleGpus.length > 0) {
+    const bestMinimumGpu = compatibleGpus
+      .sort((a, b) => b.vram - a.vram)[0];
+      
+    const minimumSolution = {
+      gpu: bestMinimumGpu,
+      count: 1,
+      totalVram: bestMinimumGpu.vram,
+      performance: estimateGpuPerformance(bestMinimumGpu),
+      efficiency: calculateEfficiencyScore(bestMinimumGpu, requiredVramMin),
+      meetsRecommended: false
+    };
+    
+    return {
+      optimal: minimumSolution,
+      performance: minimumSolution,
+      budget: minimumSolution,
+      isUnifiedMemory
+    };
+  }
+  
+  return {
+    optimal: optimalSolutions[0] || null,
+    performance: performanceSolutions[0] || null,
+    budget: budgetSolutions[0] || null,
+    isUnifiedMemory
+  };
+};
+
+/**
+ * Recommend optimal unified memory setup
+ * @param {Object} memoryRequirements - Object containing VRAM requirements
+ * @param {Array} availableGpus - Array of available GPUs to choose from
+ * @returns {Object} Recommended unified memory configuration
+ */
+export const recommendUnifiedMemorySetup = (memoryRequirements, availableGpus) => {
+  // For unified memory, we want to find devices that have enough unified memory
+  // Extract memory requirements - for unified memory, vramRecGB and ramRecGB are the same
+  const requiredMemoryMin = memoryRequirements.vramMinGB || 0;
+  const requiredMemoryRec = memoryRequirements.vramRecGB || 0;
+  
+  // Filter for unified memory devices with adequate memory
+  const unifiedDevices = availableGpus.filter(gpu => 
+    gpu.isUnified && gpu.vram >= requiredMemoryMin
+  );
+  
+  if (unifiedDevices.length === 0) {
+    console.log("No compatible unified memory devices found");
+    return {
+      optimal: null,
+      performance: null,
+      budget: null,
+      isUnifiedMemory: true
+    };
+  }
+  
+  // Categorize devices into those that meet recommended and minimum requirements
+  const recommendedDevices = unifiedDevices
+    .filter(gpu => gpu.vram >= requiredMemoryRec)
+    .map(gpu => ({
+      gpu: gpu,
+      count: 1, // Unified memory devices are always single units
+      totalVram: gpu.vram,
+      performance: estimateGpuPerformance(gpu),
+      efficiency: calculateEfficiencyScore(gpu, requiredMemoryRec),
+      meetsRecommended: true
+    }));
+  
+  const minimumDevices = unifiedDevices
+    .filter(gpu => gpu.vram >= requiredMemoryMin && gpu.vram < requiredMemoryRec)
+    .map(gpu => ({
+      gpu: gpu,
+      count: 1,
+      totalVram: gpu.vram,
+      performance: estimateGpuPerformance(gpu),
+      efficiency: calculateEfficiencyScore(gpu, requiredMemoryMin),
+      meetsRecommended: false
+    }));
+  
+  // Combine and sort
+  const allDevices = [...recommendedDevices, ...minimumDevices];
+  
+  // If no devices found, return null
+  if (allDevices.length === 0) {
+    return {
+      optimal: null,
+      performance: null,
+      budget: null,
+      isUnifiedMemory: true
+    };
+  }
+  
+  // For unified memory, optimal balances performance and memory efficiency
+  const optimalDevices = [...allDevices].sort((a, b) => {
+    // First prioritize meeting recommended requirements
+    if (a.meetsRecommended !== b.meetsRecommended) 
+      return a.meetsRecommended ? -1 : 1;
+    // Then prioritize performance
+    return b.performance - a.performance;
+  });
+  
+  // Performance prioritizes raw compute power and available memory
+  const performanceDevices = [...allDevices].sort((a, b) => {
+    return b.performance - a.performance;
+  });
+  
+  // Budget prioritizes efficiency
+  const budgetDevices = [...allDevices].sort((a, b) => {
+    // First ensure it meets minimum requirements
+    if (a.meetsRecommended !== b.meetsRecommended) 
+      return a.meetsRecommended ? -1 : 1;
+    // Then prioritize efficiency
+    return b.efficiency - a.efficiency;
+  });
+  
+  return {
+    optimal: optimalDevices[0] || null,
+    performance: performanceDevices[0] || null,
+    budget: budgetDevices[0] || null,
+    isUnifiedMemory: true
+  };
 };
 
 // Filter GPUs by search query - significantly enhanced version
