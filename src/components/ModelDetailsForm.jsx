@@ -61,9 +61,9 @@ const ModelDetailsForm = ({
   ];
 
   return (
-    <div className="card p-6 sticky top-8">
-      <h2 className="text-xl font-semibold mb-5 text-gray-800 flex items-center">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 mr-2 text-primary-600">
+    <div className="card p-6 sticky top-8"> {/* Card styling handled globally */}
+      <h2 className="text-xl font-semibold mb-5 text-gray-800 flex items-center dark:text-gray-200"> {/* Dark heading text */}
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 mr-2 text-primary-600 dark:text-primary-400"> {/* Dark icon */}
           <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
         </svg>
         Model Parameters
@@ -84,8 +84,8 @@ const ModelDetailsForm = ({
               onClick={() => setModelParams(model.size)}
               className={`px-2 py-1 text-xs rounded-md transition-all ${
                 modelParams === model.size 
-                  ? 'bg-primary-100 text-primary-700 font-medium ring-1 ring-primary-400' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'bg-primary-100 text-primary-700 font-medium ring-1 ring-primary-400 dark:bg-primary-900 dark:text-primary-300 dark:ring-primary-500' // Dark active state
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600' // Dark inactive state
               }`}
             >
               {model.name}
@@ -109,10 +109,10 @@ const ModelDetailsForm = ({
       
       {/* Model Quantization */}
       <div className="mb-6">
-        <label htmlFor="quantization" className="input-label flex items-center">
+        <label htmlFor="quantization" className="input-label flex items-center"> {/* Label handled globally */}
           Model Quantization
           <Tooltip text="Quantization precision for model weights. Lower precision uses less memory but may reduce model quality">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 ml-1 text-gray-400">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 ml-1 text-gray-400 dark:text-gray-500"> {/* Dark tooltip icon */}
               <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-1.17 1.025-3.07 1.025-4.242 0-1.172-1.025-1.172-2.687 0-3.712z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
             </svg>
@@ -126,7 +126,7 @@ const ModelDetailsForm = ({
           size="5"
         >
           {quantizationOptions.map(option => (
-            <option key={option.value} value={option.value}>
+            <option key={option.value} value={option.value} className="dark:bg-gray-700 dark:text-gray-100"> {/* Ensure option text visible */}
               {option.label}
             </option>
           ))}
@@ -138,10 +138,10 @@ const ModelDetailsForm = ({
 
       {/* KV Cache Quantization */}
       <div className="mb-6">
-        <label htmlFor="kvQuantization" className="input-label flex items-center">
+        <label htmlFor="kvQuantization" className="input-label flex items-center"> {/* Label handled globally */}
           KV Cache Quantization
           <Tooltip text="Optional separate quantization for KV cache. If not set, uses model quantization">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 ml-1 text-gray-400">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 ml-1 text-gray-400 dark:text-gray-500"> {/* Dark tooltip icon */}
               <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-1.17 1.025-3.07 1.025-4.242 0-1.172-1.025-1.172-2.687 0-3.712z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
             </svg>
@@ -154,9 +154,9 @@ const ModelDetailsForm = ({
           onChange={(e) => setKvQuantization(e.target.value)}
           size="5"
         >
-          <option value="">Use Model Quantization</option>
+          <option value="" className="dark:bg-gray-700 dark:text-gray-100">Use Model Quantization</option> {/* Style empty option */}
           {quantizationOptions.map(option => (
-            <option key={option.value} value={option.value}>
+            <option key={option.value} value={option.value} className="dark:bg-gray-700 dark:text-gray-100"> {/* Ensure option text visible */}
               {option.label}
             </option>
           ))}
@@ -168,10 +168,10 @@ const ModelDetailsForm = ({
       
       {/* Context Length */}
       <div className="mb-6">
-        <label htmlFor="contextLength" className="input-label flex items-center">
+        <label htmlFor="contextLength" className="input-label flex items-center"> {/* Label handled globally */}
           Context Length
           <Tooltip text="Longer contexts use more memory for attention KV cache">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 ml-1 text-gray-400">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 ml-1 text-gray-400 dark:text-gray-500"> {/* Dark tooltip icon */}
               <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" />
             </svg>
           </Tooltip>
@@ -186,8 +186,8 @@ const ModelDetailsForm = ({
               onClick={() => setContextLength(preset)}
               className={`px-2 py-1 text-xs rounded-md transition-all ${
                 contextLength === preset 
-                  ? 'bg-secondary-100 text-secondary-700 font-medium ring-1 ring-secondary-400' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'bg-secondary-100 text-secondary-700 font-medium ring-1 ring-secondary-400 dark:bg-secondary-900 dark:text-secondary-300 dark:ring-secondary-500' // Dark active
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600' // Dark inactive
               }`}
             >
               {preset.toLocaleString()}
@@ -211,10 +211,10 @@ const ModelDetailsForm = ({
       
       {/* Batch Size */}
       <div className="mb-5">
-        <label htmlFor="batchSize" className="input-label flex items-center">
+        <label htmlFor="batchSize" className="input-label flex items-center"> {/* Label handled globally */}
           Batch Size
           <Tooltip text="Number of sequences to process in parallel">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 ml-1 text-gray-400">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 ml-1 text-gray-400 dark:text-gray-500"> {/* Dark tooltip icon */}
               <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" />
             </svg>
           </Tooltip>
@@ -235,10 +235,10 @@ const ModelDetailsForm = ({
       
       {/* Memory Type Selection */}
       <div className="mb-5">
-        <label className="input-label flex items-center">
+        <label className="input-label flex items-center"> {/* Label handled globally */}
           Memory Architecture
           <Tooltip text="Choose between unified memory (shared RAM/VRAM) and discrete GPU memory">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 ml-1 text-gray-400">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 ml-1 text-gray-400 dark:text-gray-500"> {/* Dark tooltip icon */}
               <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-1.17 1.025-3.07 1.025-4.242 0-1.172-1.025-1.172-2.687 0-3.712z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
             </svg>
@@ -251,8 +251,8 @@ const ModelDetailsForm = ({
             onClick={() => setIsUnifiedMemory(false)}
             className={`flex-1 px-3 py-2 rounded-md text-sm transition-all ${
               !isUnifiedMemory 
-                ? 'bg-primary-100 text-primary-700 font-medium ring-1 ring-primary-400' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ? 'bg-primary-100 text-primary-700 font-medium ring-1 ring-primary-400 dark:bg-primary-900 dark:text-primary-300 dark:ring-primary-500' // Dark active
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600' // Dark inactive
             }`}
           >
             Discrete GPU Memory
@@ -262,8 +262,8 @@ const ModelDetailsForm = ({
             onClick={() => setIsUnifiedMemory(true)}
             className={`flex-1 px-3 py-2 rounded-md text-sm transition-all ${
               isUnifiedMemory 
-                ? 'bg-primary-100 text-primary-700 font-medium ring-1 ring-primary-400' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ? 'bg-primary-100 text-primary-700 font-medium ring-1 ring-primary-400 dark:bg-primary-900 dark:text-primary-300 dark:ring-primary-500' // Dark active
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600' // Dark inactive
             }`}
           >
             Unified Memory

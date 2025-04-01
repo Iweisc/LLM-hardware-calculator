@@ -15,6 +15,7 @@
   @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium;
   background-color: rgba(99, 102, 241, 0.1);
   color: rgb(67, 56, 202);
+  @apply dark:bg-primary-500 dark:bg-opacity-20 dark:text-primary-300; /* Dark badge */
 }
 
 /* Graph and chart styles for results visualization */
@@ -28,6 +29,7 @@
 
 .bar-chart {
   @apply relative h-5 bg-gray-100 rounded-full overflow-hidden;
+  @apply dark:bg-gray-700; /* Dark bar background */
 }
 
 .bar-fill {
@@ -41,9 +43,15 @@
 .bar-fill-vram {
   @apply bg-gradient-to-r from-primary-500 to-accent-500;
 }
+.dark .bar-fill-vram {
+   @apply from-primary-400 to-accent-400; /* Dark VRAM bar */
+}
 
 .bar-fill-ram {
   @apply bg-gradient-to-r from-secondary-500 to-teal-500;
+}
+.dark .bar-fill-ram {
+   @apply from-secondary-400 to-teal-400; /* Dark RAM bar */
 }
 
 /* Tooltip styles */
@@ -56,13 +64,15 @@
   bottom: 125%;
   left: 50%;
   transform: translateX(-50%);
+  @apply dark:bg-gray-700 dark:text-gray-100; /* Dark tooltip */
 }
 
 .tooltip .tooltip-text::after {
   content: "";
   @apply absolute top-full left-1/2 border-4 border-transparent;
   margin-left: -4px;
-  border-top-color: #1f2937;
+  border-top-color: #1f2937; /* bg-gray-800 */
+  @apply dark:border-top-gray-700; /* Dark tooltip arrow */
 }
 
 .tooltip:hover .tooltip-text {
