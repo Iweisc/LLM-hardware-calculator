@@ -8,17 +8,83 @@ const GPU_API_URL = 'https://raw.githubusercontent.com/voidful/gpu-info-api/gpu-
 // Function to parse and clean GPU data from the raw JSON
 export const processGpuData = async () => {
   try {
-    // Fetch GPU data from GitHub API
-    console.log("Loading GPU database from API...");
-    const response = await fetch(GPU_API_URL);
-    
-    if (!response.ok) {
-      console.error(`Failed to fetch GPU data: ${response.status} ${response.statusText}`);
-      return defaultGpuList;
+    // Check if we have cached data and it's not too old (24 hours)
+    const cachedData = getCachedGpuData();
+    if (cachedData) {
+      console.log("Using cached GPU data");
+      return cachedData;
     }
     
-    const data = await response.json();
-    console.log(`Successfully loaded GPU database with ${Object.keys(data).length} entries`);
+    // Maximum number of retries
+    const MAX_RETRIES = 3;
+    // Timeout for fetch in milliseconds (5 seconds)
+    const FETCH_TIMEOUT = 5000;
+    
+    // Create a function for fetch with timeout
+    const fetchWithTimeout = async (url, options, timeout) => {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeout);
+      
+      try {
+        const response = await fetch(url, {
+          ...options,
+          signal: controller.signal
+        });
+        clearTimeout(id);
+        return response;
+      } catch (error) {
+        clearTimeout(id);
+        throw error;
+      }
+    };
+    
+    // Retry logic for fetch operation
+    let lastError = null;
+    let data = null;
+    
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        console.log(`Loading GPU database from API (attempt ${attempt} of ${MAX_RETRIES})...`);
+        
+        const response = await fetchWithTimeout(GPU_API_URL, {}, FETCH_TIMEOUT);
+        
+        if (!response.ok) {
+          const errorMessage = `Failed to fetch GPU data: ${response.status} ${response.statusText}`;
+          console.warn(errorMessage);
+          lastError = new Error(errorMessage);
+          // Wait before retry, with exponential backoff
+          if (attempt < MAX_RETRIES) {
+            const delayMs = Math.pow(2, attempt) * 500; // 1s, 2s, 4s
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+          }
+          continue;
+        }
+        
+        data = await response.json();
+        console.log(`Successfully loaded GPU database with ${Object.keys(data).length} entries`);
+        
+        // Cache the successful response
+        cacheGpuData(data);
+        
+        // Successfully retrieved data, break out of the retry loop
+        break;
+      } catch (error) {
+        console.error(`Error on attempt ${attempt}: ${error.message}`);
+        lastError = error;
+        
+        // Wait before retry if not the last attempt
+        if (attempt < MAX_RETRIES) {
+          const delayMs = Math.pow(2, attempt) * 500;
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+      }
+    }
+    
+    // If all retries failed, use default data
+    if (!data) {
+      console.error("All attempts to fetch GPU data failed, using default list");
+      return defaultGpuList;
+    }
     
     // Extract relevant GPU information
     const gpuList = [];
@@ -194,7 +260,11 @@ export const defaultGpuList = [
   
   // Qualcomm
   { name: "Snapdragon X Elite", vendor: "Qualcomm", vram: 32, isUnified: true },
-  { name: "Snapdragon 8cx Gen 3", vendor: "Qualcomm", vram: 32, isUnified: true }
+  { name: "Snapdragon 8cx Gen 3", vendor: "Qualcomm", vram: 32, isUnified: true },
+  
+  // Intel Data Center GPUs
+  { name: "Data Center GPU Max 1550", vendor: "Intel", vram: 128, isUnified: false },
+  { name: "Data Center GPU Max 1100", vendor: "Intel", vram: 48, isUnified: false }
 ];
 
 // Get all GPUs (no filtering except by memory threshold)
@@ -305,6 +375,48 @@ export const getWorkstationGpus = (gpuList, limit = null) => {
 
 // Cache for processed GPU list to avoid reprocessing
 let cachedGpuList = null;
+
+// Functions to handle localStorage caching of GPU data
+// Cache expiration time - 24 hours in milliseconds
+const CACHE_EXPIRATION = 24 * 60 * 60 * 1000;
+
+// Get cached GPU data from localStorage
+const getCachedGpuData = () => {
+  try {
+    const cachedData = localStorage.getItem('gpu_data_cache');
+    if (!cachedData) return null;
+    
+    const parsed = JSON.parse(cachedData);
+    const now = new Date().getTime();
+    
+    // Check if cache is still valid (not expired)
+    if (parsed.timestamp && (now - parsed.timestamp < CACHE_EXPIRATION)) {
+      console.log('Found valid GPU data in cache');
+      return parsed.data;
+    } else {
+      console.log('GPU cache expired, fetching fresh data');
+      localStorage.removeItem('gpu_data_cache');
+      return null;
+    }
+  } catch (error) {
+    console.error('Error reading GPU cache:', error);
+    return null;
+  }
+};
+
+// Save GPU data to localStorage cache
+const cacheGpuData = (data) => {
+  try {
+    const cacheObject = {
+      timestamp: new Date().getTime(),
+      data: data
+    };
+    localStorage.setItem('gpu_data_cache', JSON.stringify(cacheObject));
+    console.log('GPU data saved to cache');
+  } catch (error) {
+    console.error('Error saving GPU data to cache:', error);
+  }
+};
 
 // Process and cache GPU data
 export const getCachedGpuList = async () => {
@@ -701,6 +813,13 @@ const getVramFromGpuModel = (modelName) => {
   if (modelName.includes('a4000')) return 16;
   if (modelName.includes('quadro') || modelName.includes('rtx a')) return 16; // Typical modern Quadro
   if (modelName.includes('tesla') || modelName.includes('v100')) return 32;   // Typical Tesla
+  
+  // Intel Data Center GPUs
+  if (modelName.includes('intel') && modelName.includes('max')) {
+    if (modelName.includes('1550')) return 128; // Intel Data Center GPU Max 1550 has 128GB HBM2e
+    if (modelName.includes('1100')) return 48;  // Intel Data Center GPU Max 1100 has 48GB HBM2e
+    return 48; // Default for other Intel Max series
+  }
   
   // Basic fallbacks by vendor
   if (modelName.includes('nvidia')) return 8;    // Newer NVIDIA cards typically have at least 8GB

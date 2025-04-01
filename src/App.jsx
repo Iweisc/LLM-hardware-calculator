@@ -2,11 +2,7 @@ import { useState, useEffect } from 'react';
 import './App.css';
 import { calculateHardware } from './utils/calculator';
 import { 
-  processGpuData, 
   defaultGpuList, 
-  getConsumerGpus, 
-  getWorkstationGpus, 
-  filterGpusBySearch, 
   getCachedGpuList,
   recommendOptimalGpuSetup
 } from './utils/gpuData';
@@ -150,11 +146,9 @@ function App() {
   const [contextLength, setContextLength] = useState(4096);
   const [batchSize, setBatchSize] = useState(1);
   const [isUnifiedMemory, setIsUnifiedMemory] = useState(false);
-  const [numGpus, setNumGpus] = useState(1);
   const [results, setResults] = useState(null);
   const [gpuList, setGpuList] = useState(defaultGpuList);
   const [gpuListLoading, setGpuListLoading] = useState(true);
-  const [gpuSearchQuery, setGpuSearchQuery] = useState('');
   
   // Fetch and cache GPU data when component mounts
   useEffect(() => {
@@ -234,10 +228,10 @@ function App() {
       contextLength,
       batchSize,
       isUnifiedMemory,
-      isUnifiedMemory ? 1 : numGpus
+      1
     );
     setResults(calculationResults);
-  }, [modelParams, quantization, contextLength, batchSize, isUnifiedMemory, numGpus]);
+  }, [modelParams, quantization, contextLength, batchSize, isUnifiedMemory]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -454,47 +448,6 @@ function App() {
                 </p>
               </div>
               
-              {/* Number of GPUs - only visible if not unified memory */}
-              {!isUnifiedMemory && (
-                <div className="mb-4">
-                  <label htmlFor="numGpus" className="input-label flex items-center">
-                    Number of GPUs
-                    <Tooltip text="Number of GPUs in your system or server rack">
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 ml-1 text-gray-400">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 6.75v10.5a2.25 2.25 0 002.25 2.25zm.75-12h9v9h-9v-9z" />
-                      </svg>
-                    </Tooltip>
-                  </label>
-                  <div className="mt-1 mb-3 flex flex-wrap gap-2">
-                    {[1, 2, 4, 8, 16].map(num => (
-                      <button
-                        key={num}
-                        type="button"
-                        onClick={() => setNumGpus(num)}
-                        className={`px-2 py-1 text-xs rounded-md transition-all ${
-                          numGpus === num 
-                            ? 'bg-secondary-100 text-secondary-700 font-medium ring-1 ring-secondary-400' 
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        {num} GPU{num > 1 ? 's' : ''}
-                      </button>
-                    ))}
-                  </div>
-                  <input
-                    type="number"
-                    id="numGpus"
-                    className="block w-full"
-                    value={numGpus}
-                    onChange={(e) => setNumGpus(Math.max(1, Number(e.target.value) || 1))}
-                    min="1"
-                    step="1"
-                  />
-                  <p className="help-text">
-                    Multi-GPU setups distribute the model across multiple GPUs
-                  </p>
-                </div>
-              )}
             </div>
           </div>
           
@@ -789,196 +742,6 @@ function App() {
                   </div>
                 </div>
                 
-                {/* Compatibility Guide */}
-                <div className="bg-gray-50 p-5 rounded-xl animated-bg">
-                  <h3 className="text-lg font-medium text-gray-800 mb-4 flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 mr-2 text-primary-600">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-                    </svg>
-                    General Hardware Compatibility
-                  </h3>
-                  
-                  <div className="card p-5">
-                    <p className="text-sm text-gray-600 mb-4">
-                      These calculations are approximate and may vary based on specific model architecture,
-                      framework overhead, and system configuration.
-                    </p>
-                    
-                      <div className="space-y-4">
-                        {/* Consumer GPUs compatibility */}
-                        <div className="p-4 bg-gray-50 rounded-lg">
-                          <h4 className="text-sm font-medium text-gray-800 mb-2 flex justify-between items-center">
-                            <span>Consumer GPU Compatibility</span>
-                            {gpuListLoading && <span className="text-xs text-gray-500">Loading...</span>}
-                          </h4>
-                          
-                          {/* GPU Search Bar */}
-                          <div className="mb-3">
-                            <div className="relative">
-                              <input 
-                                type="text"
-                                className="w-full p-2 pl-8 pr-3 text-xs rounded-md border border-gray-300 focus:ring-primary-500 focus:border-primary-500"
-                                placeholder="Search for your GPU model..."
-                                value={gpuSearchQuery}
-                                onChange={(e) => setGpuSearchQuery(e.target.value)}
-                              />
-                              <div className="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none text-gray-400">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-                                </svg>
-                              </div>
-                              {gpuSearchQuery && (
-                                <button
-                                  className="absolute inset-y-0 right-0 flex items-center pr-2 text-gray-400 hover:text-gray-600"
-                                  onClick={() => setGpuSearchQuery('')}
-                                >
-                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                  </svg>
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-2 max-h-64 overflow-y-auto">
-                            {getConsumerGpus(filterGpusBySearch(gpuList, gpuSearchQuery)).length > 0 ? 
-                              getConsumerGpus(filterGpusBySearch(gpuList, gpuSearchQuery)).map((gpu, index) => {
-                                const isMinCompatible = gpu.vram >= results.vramMinGB;
-                                const isRecCompatible = gpu.vram >= results.vramRecGB;
-                                let status = "incompatible";
-                                if (isRecCompatible) status = "compatible";
-                                else if (isMinCompatible) status = "marginal";
-                                
-                                // Create a clean display name combining vendor and model
-                                const displayName = [
-                                  gpu.vendor && gpu.vendor !== "nan" ? gpu.vendor : "",
-                                  gpu.name && gpu.name !== "nan" ? gpu.name : "GPU"
-                                ].filter(Boolean).join(" ");
-                                
-                                return (
-                                  <div key={gpu.id || index} className="flex items-center justify-between">
-                                    <span className="text-xs font-medium">
-                                      {displayName} ({gpu.vram} GB)
-                                    </span>
-                                    <span className={`text-xs px-2 py-0.5 rounded-full ${
-                                      status === 'compatible' ? 'bg-green-100 text-green-800' :
-                                      status === 'marginal' ? 'bg-yellow-100 text-yellow-800' :
-                                      'bg-red-100 text-red-800'
-                                    }`}>
-                                      {status === 'compatible' ? 'Compatible' :
-                                       status === 'marginal' ? 'Marginal' :
-                                       'Incompatible'}
-                                    </span>
-                                  </div>
-                                );
-                              }) : 
-                              // Fallback to default consumer GPUs if none are available
-                              defaultGpuList.filter(gpu => !["A100", "A6000", "A5000", "A4000"].includes(gpu.name)).slice(0, 8).map((gpu, index) => {
-                                const isMinCompatible = gpu.vram >= results.vramMinGB;
-                                const isRecCompatible = gpu.vram >= results.vramRecGB;
-                                let status = "incompatible";
-                                if (isRecCompatible) status = "compatible";
-                                else if (isMinCompatible) status = "marginal";
-                                
-                                return (
-                                  <div key={`default-${index}`} className="flex items-center justify-between">
-                                    <span className="text-xs font-medium">
-                                      {gpu.name} ({gpu.vram} GB)
-                                    </span>
-                                    <span className={`text-xs px-2 py-0.5 rounded-full ${
-                                      status === 'compatible' ? 'bg-green-100 text-green-800' :
-                                      status === 'marginal' ? 'bg-yellow-100 text-yellow-800' :
-                                      'bg-red-100 text-red-800'
-                                    }`}>
-                                      {status === 'compatible' ? 'Compatible' :
-                                       status === 'marginal' ? 'Marginal' :
-                                       'Incompatible'}
-                                    </span>
-                                  </div>
-                                );
-                              })
-                            }
-                          </div>
-                        </div>
-                        
-                        {/* Professional GPUs compatibility */}
-                        <div className="p-4 bg-gray-50 rounded-lg">
-                          <h4 className="text-sm font-medium text-gray-800 mb-2">Professional GPU Compatibility</h4>
-                          <div className="space-y-2 max-h-64 overflow-y-auto">
-                            {getWorkstationGpus(filterGpusBySearch(gpuList, gpuSearchQuery)).length > 0 ?
-                              getWorkstationGpus(filterGpusBySearch(gpuList, gpuSearchQuery)).map((gpu, index) => {
-                                const isMinCompatible = gpu.vram >= results.vramMinGB;
-                                const isRecCompatible = gpu.vram >= results.vramRecGB;
-                                let status = "incompatible";
-                                if (isRecCompatible) status = "compatible";
-                                else if (isMinCompatible) status = "marginal";
-                                
-                                // Create a clean display name combining vendor and model
-                                const displayName = [
-                                  gpu.vendor && gpu.vendor !== "nan" ? gpu.vendor : "",
-                                  gpu.name && gpu.name !== "nan" ? gpu.name : "Workstation GPU"
-                                ].filter(Boolean).join(" ");
-                                
-                                return (
-                                  <div key={gpu.id || index} className="flex items-center justify-between">
-                                    <span className="text-xs font-medium">
-                                      {displayName} ({gpu.vram} GB)
-                                    </span>
-                                    <span className={`text-xs px-2 py-0.5 rounded-full ${
-                                      status === 'compatible' ? 'bg-green-100 text-green-800' :
-                                      status === 'marginal' ? 'bg-yellow-100 text-yellow-800' :
-                                      'bg-red-100 text-red-800'
-                                    }`}>
-                                      {status === 'compatible' ? 'Compatible' :
-                                       status === 'marginal' ? 'Marginal' :
-                                       'Incompatible'}
-                                    </span>
-                                  </div>
-                                );
-                              }) : 
-                              // Fallback to default pro GPUs if none are available
-                              defaultGpuList.filter(gpu => ["A100", "A6000", "A5000", "A4000"].includes(gpu.name)).map((gpu, index) => {
-                                const isMinCompatible = gpu.vram >= results.vramMinGB;
-                                const isRecCompatible = gpu.vram >= results.vramRecGB;
-                                let status = "incompatible";
-                                if (isRecCompatible) status = "compatible";
-                                else if (isMinCompatible) status = "marginal";
-                                
-                                return (
-                                  <div key={`default-pro-${index}`} className="flex items-center justify-between">
-                                    <span className="text-xs font-medium">
-                                      NVIDIA {gpu.name} ({gpu.vram} GB)
-                                    </span>
-                                    <span className={`text-xs px-2 py-0.5 rounded-full ${
-                                      status === 'compatible' ? 'bg-green-100 text-green-800' :
-                                      status === 'marginal' ? 'bg-yellow-100 text-yellow-800' :
-                                      'bg-red-100 text-red-800'
-                                    }`}>
-                                      {status === 'compatible' ? 'Compatible' :
-                                       status === 'marginal' ? 'Marginal' :
-                                       'Incompatible'}
-                                    </span>
-                                  </div>
-                                );
-                              })
-                            }
-                          </div>
-                        </div>
-                      
-                      {/* Tips */}
-                      <div className="p-4 bg-gray-50 rounded-lg">
-                        <h4 className="text-sm font-medium text-gray-800 mb-2">Optimization Tips</h4>
-                        <ul className="text-xs text-gray-600 space-y-1 list-disc list-inside">
-                          <li>Lower quantization level to reduce memory usage</li>
-                          <li>Reduce context length if you don't need long contexts</li>
-                          <li>Use CPU offloading if your VRAM is insufficient</li>
-                          <li>Use attention optimizations like Flash Attention or xFormers</li>
-                          <li>Utilize memory-efficient fine-tuning methods for training</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </div>
             )}
           </div>
