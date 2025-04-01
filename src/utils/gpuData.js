@@ -846,10 +846,12 @@ export const recommendOptimalGpuSetup = (memoryRequirements, availableGpus, isUn
   }
   
   // Filter GPUs that meet the minimum requirements
-  // We consider both the minimum and recommended VRAM requirements
   const compatibleGpus = availableGpus.filter(gpu => 
-    !gpu.isUnified && gpu.vram >= requiredVramMin
+    !gpu.isUnified && gpu.vram > 0
   );
+  
+  // Sort GPUs by VRAM size in descending order - useful for extremely large models
+  const sortedGpus = [...compatibleGpus].sort((a, b) => b.vram - a.vram);
   
   // If no compatible GPUs, return null
   if (compatibleGpus.length === 0) {
@@ -863,7 +865,7 @@ export const recommendOptimalGpuSetup = (memoryRequirements, availableGpus, isUn
   }
   
   // First, try to find single-GPU solutions that meet recommended requirements
-  const singleGpuSolutions = compatibleGpus
+  const singleGpuSolutions = sortedGpus
     .filter(gpu => gpu.vram >= requiredVramRec)
     .map(gpu => ({
       gpu: gpu,
@@ -874,24 +876,48 @@ export const recommendOptimalGpuSetup = (memoryRequirements, availableGpus, isUn
       meetsRecommended: true
     }));
   
-  // For GPUs that only meet minimum requirements
-  const minimumGpuSolutions = compatibleGpus
-    .filter(gpu => gpu.vram >= requiredVramMin && gpu.vram < requiredVramRec)
+  // For GPUs that need multiple units to meet the recommended requirement
+  // First handle the case where even the best GPU needs multiple units
+  const bestGpu = sortedGpus[0]; // The GPU with most VRAM
+  const multiGpuSolutions = [];
+  
+  // If the best GPU doesn't meet recommended by itself, calculate how many are needed
+  if (bestGpu && bestGpu.vram > 0 && bestGpu.vram < requiredVramRec) {
+    const count = Math.ceil(requiredVramRec / bestGpu.vram);
+    // Limit to a reasonable number
+    const actualCount = Math.min(count, 16);  // cap at 16 GPUs max
+    
+    multiGpuSolutions.push({
+      gpu: bestGpu,
+      count: actualCount,
+      totalVram: bestGpu.vram * actualCount,
+      performance: estimateGpuPerformance(bestGpu) * Math.sqrt(actualCount), // Multi-GPU scaling not linear
+      efficiency: calculateEfficiencyScore(bestGpu, requiredVramRec / actualCount), // Efficiency per GPU
+      meetsRecommended: bestGpu.vram * actualCount >= requiredVramRec
+    });
+  }
+  
+  // For GPUs that only meet minimum requirements but not recommended with a single GPU
+  const minimumGpuSolutions = sortedGpus
+    .filter(gpu => gpu.vram >= requiredVramMin && gpu.vram < requiredVramRec && gpu !== bestGpu)
     .map(gpu => {
       // Calculate how many GPUs we need to meet the recommended requirement
       const count = Math.ceil(requiredVramRec / gpu.vram);
+      // Limit to a reasonable number
+      const actualCount = Math.min(count, 16);  // cap at 16 GPUs max
+      
       return {
         gpu: gpu,
-        count: count,
-        totalVram: gpu.vram * count,
-        performance: estimateGpuPerformance(gpu) * Math.sqrt(count), // Multi-GPU scaling not linear
-        efficiency: calculateEfficiencyScore(gpu, requiredVramRec / count), // Efficiency per GPU
-        meetsRecommended: true
+        count: actualCount,
+        totalVram: gpu.vram * actualCount,
+        performance: estimateGpuPerformance(gpu) * Math.sqrt(actualCount), // Multi-GPU scaling not linear
+        efficiency: calculateEfficiencyScore(gpu, requiredVramRec / actualCount), // Efficiency per GPU
+        meetsRecommended: gpu.vram * actualCount >= requiredVramRec
       };
     });
   
   // Combine all solutions
-  const allSolutions = [...singleGpuSolutions, ...minimumGpuSolutions];
+  const allSolutions = [...singleGpuSolutions, ...multiGpuSolutions, ...minimumGpuSolutions];
   
   // Sort by different criteria to get optimal recommendations
   const optimalSolutions = [...allSolutions].sort((a, b) => {
